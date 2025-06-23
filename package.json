@@ -1,5 +1,5 @@
 {
-  "name": "podmirror",
+  "name": "rss-sponsorblock",
   "version": "1.0.0",
   "description": "Self-hosted podcast ad remover using Gemini 2.5 Flash",
   "main": "src/index.js",

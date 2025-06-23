@@ -81,6 +81,6 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Podmirror server running on port ${PORT}`);
+  console.log(`RSS SponsorBlock server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });

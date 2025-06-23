@@ -25,7 +25,7 @@ Audio Request → Check Cache → If Cached: Serve immediately
 ## File Structure
 
 ```
-podmirror/
+rss-sponsorblock/
 ├── src/
 │   ├── index.js              # Express server
 │   ├── services/

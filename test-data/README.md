@@ -1,6 +1,6 @@
 # Testing
 
-Automated test suite for the podmirror application using Node.js built-in test runner.
+Automated test suite for the rss-sponsorblock application using Node.js built-in test runner.
 
 ## Running Tests
 
