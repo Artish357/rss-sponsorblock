@@ -197,6 +197,27 @@ CREATE TABLE episodes (
 4. Older episodes process on first play request
 5. All plays after processing are instant and ad-free
 
+## Development Tools (MCP Servers)
+
+### SQLite MCP Server
+```bash
+npx @modelcontextprotocol/server-sqlite --db-path ./storage/metadata.db
+```
+- Query episode cache during development
+- Test database schema changes
+- Analyze processing statistics
+- Debug cache hit/miss patterns
+
+### JavaScript MCP Server
+```bash
+npx @yannbam/fresh-js-mcp
+```
+- Test code snippets in REPL
+- Prototype Gemini response parsing
+- Debug FFmpeg command generation
+- Test timestamp conversions
+- Validate RSS manipulation logic
+
 ## Implementation Steps
 
 1. Express server with RSS and audio routes
@@ -206,3 +227,4 @@ CREATE TABLE episodes (
 5. FFmpeg audio processing
 6. Audio serving with range requests
 7. Cleanup and error handling
+8. Set up MCP servers for development
