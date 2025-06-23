@@ -37,9 +37,10 @@ podmirror/
 │       └── adDetection.js    # Customizable prompt
 ├── storage/
 │   ├── audio/{feed_hash}/{episode_guid}.mp3
-│   └── metadata.db
+│   └── storage.db
 ├── temp/
-└── config/default.json
+├── .env.example             # Environment config template
+└── .env                     # Environment config (not in git)
 ```
 
 ## Key Components
@@ -169,22 +170,20 @@ CREATE TABLE episodes (
 ```
 
 ## Configuration
-```json
-{
-  "gemini": {
-    "apiKey": "YOUR_KEY",
-    "model": "gemini-2.5-flash",
-    "timeout": 300000
-  },
-  "storage": {
-    "audioDir": "./storage/audio",
-    "cleanupAfterDays": 30
-  },
-  "server": {
-    "port": 3000,
-    "baseUrl": "http://localhost:3000"
-  }
-}
+Environment variables (copy `.env.example` to `.env`):
+```bash
+# Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TIMEOUT=300000
+
+# Storage Configuration
+STORAGE_AUDIO_DIR=./storage/audio
+STORAGE_CLEANUP_DAYS=30
+
+# Server Configuration
+SERVER_PORT=3000
+SERVER_BASE_URL=http://localhost:3000
 ```
 
 
@@ -200,7 +199,7 @@ CREATE TABLE episodes (
 
 ### SQLite MCP Server
 ```bash
-npx @modelcontextprotocol/server-sqlite --db-path ./storage/metadata.db
+npx @modelcontextprotocol/server-sqlite --db-path ./storage/storage.db
 ```
 - Query episode cache during development
 - Test database schema changes
