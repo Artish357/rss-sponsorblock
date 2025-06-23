@@ -1,4 +1,4 @@
-# Podcast Ad Remover
+# RSS SponsorBlock
 
 Self-hosted Node.js app that removes ads from podcast episodes using Gemini 2.5 Flash.
 
@@ -39,10 +39,11 @@ rss-sponsorblock/
 │   ├── audio/{feed_hash}/{episode_guid}.mp3
 │   └── storage.db
 ├── temp/
-├── test-data/               # Test RSS feeds
-│   ├── README.md            # Test data documentation
-│   ├── conspirituality-rss.xml
-│   └── behind-the-bastards-rss.xml
+├── tests/                   # Test suite
+│   ├── README.md            # Testing documentation
+│   ├── rssService.test.js   # RSS service tests
+│   ├── security.test.js     # Security validation tests
+│   └── storageService.test.js # Storage service tests
 ├── .env.example             # Environment config template
 └── .env                     # Environment config (not in git)
 ```
@@ -316,3 +317,9 @@ npx @modelcontextprotocol/server-sqlite --db-path ./storage/storage.db
    - FFmpeg audio processing using detected ad segments
    - Audio serving with range requests
    - Background processing queue
+
+## Recent Updates
+
+- **Project Rename**: Renamed from `podmirror` to `rss-sponsorblock` for clarity
+- **Test Organization**: Moved test documentation to `tests/README.md`
+- **Current Focus**: Ready to implement SQLite database and Gemini integration
