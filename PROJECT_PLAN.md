@@ -5,18 +5,21 @@ Self-hosted Node.js app that removes ads from podcast episodes using Gemini 2.5 
 ## How It Works
 
 1. **RSS Proxy**: `GET /feed?url=original-rss` → Returns RSS with local audio URLs
-2. **Lazy Processing**: First audio request processes episode, subsequent requests serve cached ad-free file
-3. **Ad Detection**: Gemini 2.5 Flash analyzes audio and returns ad timestamps
-4. **Ad Removal**: FFmpeg cuts out ad segments and concatenates clean audio
+2. **Pre-Processing**: First 3 episodes start processing automatically when feed is fetched
+3. **Lazy Processing**: Any unprocessed episodes are processed on first play request
+4. **Ad Detection**: Gemini 2.5 Flash analyzes audio and returns ad timestamps
+5. **Ad Removal**: FFmpeg cuts out ad segments and concatenates clean audio
 
 ## Architecture
 
 ```
 RSS Request → Fetch Original → Replace URLs → Return Modified RSS
+              ↓
+              → Queue first 3 episodes for background processing
 
-Audio Request → Check Cache → If Not Cached:
-  → Download Audio → Gemini Analysis → FFmpeg Cut → Cache Result
-  → Serve Ad-Free Audio
+Audio Request → Check Cache → If Cached: Serve immediately
+                           → If Processing: Wait for completion
+                           → If Not Started: Process synchronously
 ```
 
 ## File Structure
@@ -43,12 +46,45 @@ podmirror/
 
 ### Server Routes
 ```javascript
-// RSS proxy
+// RSS proxy with pre-processing
 app.get('/feed', async (req, res) => {
   const feed = await rssService.fetchFeed(req.query.url);
   const modified = rssService.replaceAudioUrls(feed);
+  
+  // Queue first 3 episodes for sequential background processing
+  (async () => {
+    for (const episode of feed.episodes.slice(0, 3)) {
+      try {
+        await processEpisodeAsync(feed.feedHash, episode.guid, episode.audioUrl);
+      } catch (error) {
+        console.error(`Failed to pre-process ${episode.guid}:`, error);
+      }
+    }
+  })();
+  
   res.type('application/rss+xml').send(modified);
 });
+
+// Background processing function
+const processEpisodeAsync = async (feedHash, episodeGuid, audioUrl) => {
+  const lockKey = `${feedHash}:${episodeGuid}`;
+  
+  // Skip if already processed or processing
+  const existing = await storageService.getEpisode(feedHash, episodeGuid);
+  if (existing || processingLocks.has(lockKey)) return;
+  
+  const promise = processEpisode(feedHash, episodeGuid, audioUrl);
+  processingLocks.set(lockKey, promise);
+  
+  try {
+    await promise;
+    console.log(`Pre-processed episode: ${episodeGuid}`);
+  } catch (error) {
+    console.error(`Pre-processing failed for ${episodeGuid}:`, error);
+  } finally {
+    processingLocks.delete(lockKey);
+  }
+};
 
 // Audio serving with processing lock
 const processingLocks = new Map();
@@ -56,22 +92,26 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
   const lockKey = `${req.params.feedHash}:${req.params.episodeGuid}`;
   
   // Check cache first
-  const cached = await storageService.getEpisode(lockKey);
+  const cached = await storageService.getEpisode(req.params.feedHash, req.params.episodeGuid);
   if (cached) return serveAudioFile(cached.file_path, req, res);
   
-  // Wait if already processing
+  // Wait if already processing (from pre-processing)
   if (processingLocks.has(lockKey)) {
     await processingLocks.get(lockKey);
-    return serveAudioFile(await storageService.getEpisode(lockKey), req, res);
+    const processed = await storageService.getEpisode(req.params.feedHash, req.params.episodeGuid);
+    if (processed) return serveAudioFile(processed.file_path, req, res);
   }
   
-  // Process and serve
-  const promise = processEpisode(lockKey, req.query.url);
+  // Process synchronously if not pre-processed
+  const promise = processEpisode(req.params.feedHash, req.params.episodeGuid, req.query.url);
   processingLocks.set(lockKey, promise);
-  const result = await promise;
-  processingLocks.delete(lockKey);
   
-  serveAudioFile(result, req, res);
+  try {
+    const result = await promise;
+    return serveAudioFile(result.file_path, req, res);
+  } finally {
+    processingLocks.delete(lockKey);
+  }
 });
 ```
 
@@ -148,12 +188,14 @@ CREATE TABLE episodes (
 }
 ```
 
+
 ## Usage
 
 1. Start server: `npm start`
 2. Add to podcast app: `http://localhost:3000/feed?url=https://podcast.com/feed.xml`
-3. First play processes episode (2-5 min wait)
-4. Subsequent plays are instant and ad-free
+3. Recent episodes (first 3) start processing automatically
+4. Older episodes process on first play request
+5. All plays after processing are instant and ad-free
 
 ## Implementation Steps
 
