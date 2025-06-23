@@ -1,16 +1,32 @@
-// SQLite database and file storage service
+// In-memory storage service (will be replaced with SQLite later)
+
+// In-memory storage for episode metadata
+const episodeStorage = new Map();
+
+const getEpisodeKey = (feedHash, episodeGuid) => `${feedHash}:${episodeGuid}`;
 
 export const initDatabase = async () => {
-  // TODO: Initialize SQLite database
-  throw new Error('Database initialization not implemented yet');
+  // Initialize in-memory storage (no-op for now)
+  console.log('Storage service initialized (in-memory)');
 };
 
 export const getEpisode = async (feedHash, episodeGuid) => {
-  // TODO: Implement episode retrieval
-  throw new Error('Episode retrieval not implemented yet');
+  const key = getEpisodeKey(feedHash, episodeGuid);
+  const episode = episodeStorage.get(key);
+  return episode || null;
 };
 
 export const saveEpisode = async (feedHash, episodeGuid, data) => {
-  // TODO: Implement episode saving
-  throw new Error('Episode saving not implemented yet');
+  const key = getEpisodeKey(feedHash, episodeGuid);
+  const episode = {
+    feedHash,
+    episodeGuid,
+    originalUrl: data.originalUrl,
+    filePath: data.filePath || null,
+    adSegments: data.adSegments || null,
+    processedAt: new Date().toISOString()
+  };
+  
+  episodeStorage.set(key, episode);
+  return episode;
 };

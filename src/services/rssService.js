@@ -2,9 +2,11 @@
 import { createHash } from 'crypto';
 import xml2js from 'xml2js';
 
-export const generateAudioUrl = (feedHash, episodeGuid, originalUrl) => {
+export const generateAudioUrl = (feedHash, episodeGuid) => {
   const baseUrl = process.env.SERVER_BASE_URL || 'http://localhost:3000';
-  return `${baseUrl}/audio/${feedHash}/${encodeURIComponent(episodeGuid)}.mp3?url=${encodeURIComponent(originalUrl)}`;
+  // Clean episode GUID to ensure URL-safe format
+  const safeGuid = encodeURIComponent(episodeGuid);
+  return `${baseUrl}/audio/${feedHash}/${safeGuid}.mp3`;
 };
 
 export const fetchFeed = async (url) => {
@@ -57,22 +59,39 @@ export const fetchFeed = async (url) => {
   }
 };
 
-export const replaceAudioUrls = (feed) => {
+export const replaceAudioUrls = async (feed) => {
   try {
-    // Replace original audio URLs with local proxy URLs
-    // Format: /audio/{feedHash}/{episodeGuid}.mp3?url={originalUrl}
-    const modifiedXml = feed.originalXml.replace(
-      /<enclosure([^>]+)url="([^"]+)"([^>]*)>/g,
-      (match, beforeUrl, originalUrl, afterUrl) => {
-        const episode = feed.episodes.find(ep => ep.audioUrl === originalUrl);
-        if (episode && episode.guid) {
-          const localUrl = generateAudioUrl(feed.feedHash, episode.guid, originalUrl);
-          return `<enclosure${beforeUrl}url="${localUrl}"${afterUrl}>`;
-        }
-        return match;
-      }
-    );
+    // Parse the original XML to properly modify it
+    const parser = new xml2js.Parser();
+    const builder = new xml2js.Builder();
+    const parsedXml = await parser.parseStringPromise(feed.originalXml);
     
+    // Create a map of original URLs to episode data for faster lookup
+    const urlToEpisode = new Map();
+    feed.episodes.forEach(episode => {
+      urlToEpisode.set(episode.audioUrl, episode);
+    });
+    
+    // Modify audio URLs in the parsed XML structure
+    const channel = parsedXml.rss?.channel?.[0];
+    if (channel && channel.item) {
+      channel.item.forEach(item => {
+        if (item.enclosure) {
+          item.enclosure.forEach(enclosure => {
+            if (enclosure.$ && enclosure.$.url) {
+              const originalUrl = enclosure.$.url;
+              const episode = urlToEpisode.get(originalUrl);
+              if (episode && episode.guid) {
+                enclosure.$.url = generateAudioUrl(feed.feedHash, episode.guid);
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    // Build the modified XML
+    const modifiedXml = builder.buildObject(parsedXml);
     return modifiedXml;
   } catch (error) {
     throw new Error(`Failed to replace audio URLs: ${error.message}`);

@@ -280,11 +280,39 @@ npx @modelcontextprotocol/server-sqlite --db-path ./storage/storage.db
    - XML parsing with xml2js
    - Feed hash generation (MD5)
    - Episode metadata extraction
-   - Audio URL replacement with local proxy URLs
-   - Reusable `generateAudioUrl()` function
-2. Express server with RSS and audio routes (RSS route completed)
-3. SQLite database and file storage
-4. Gemini 2.5 Flash integration
-5. FFmpeg audio processing
-6. Audio serving with range requests
-7. Cleanup and error handling
+   - **SECURITY FIX**: Audio URL replacement using internal IDs only (no original URLs exposed)
+   - Reusable `generateAudioUrl()` function for secure URL generation
+   - **IMPROVEMENT**: Replaced regex-based XML manipulation with proper xml2js parsing/building for robustness
+
+2. ✅ **Storage Service**: In-memory episode metadata storage - **COMPLETED**
+   - Episode storage with original URLs kept internal
+   - Secure lookup by feedHash + episodeGuid
+   - Ready for SQLite migration
+
+3. ✅ **Test Suite**: Automated testing with Node.js test runner - **COMPLETED**
+   - Security tests validating no URL exposure
+   - RSS service unit tests
+   - Storage service tests
+   - 12 tests passing, replacing manual curl documentation
+
+4. 🔄 **Express Server**: Basic routes implemented
+   - RSS route with secure URL replacement ✅
+   - Audio route with internal ID lookup ✅
+   - Audio processing pipeline (TODO)
+
+5. **Next Phase**: Gemini integration (prerequisite for audio processing)
+   - SQLite database implementation:
+     - Store episode metadata (feedHash, episodeGuid, originalUrl)
+     - Store processing status (downloaded, analyzed, processed)
+     - Store ad segments detected by Gemini
+     - Store file paths (original and processed audio)
+   - Gemini 2.5 Flash integration:
+     - Download audio from original URL
+     - Get timestamped transcript with speaker identification
+     - Detect ad segments from transcript (FFmpeg-compatible timestamps)
+   - Audio download service for fetching original episodes
+
+6. **Following Phase**: Audio processing pipeline
+   - FFmpeg audio processing using detected ad segments
+   - Audio serving with range requests
+   - Background processing queue
