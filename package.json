@@ -1,0 +1,25 @@
+{
+  "name": "podmirror",
+  "version": "1.0.0",
+  "description": "Self-hosted podcast ad remover using Gemini 2.5 Flash",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/*.test.js",
+    "test:watch": "node --test --watch tests/"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.19.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "sqlite3": "^5.1.6",
+    "xml2js": "^0.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

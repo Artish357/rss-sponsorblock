@@ -1,1 +1,25 @@
 /.claude
+
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Storage directories
+storage/
+temp/
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
