@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.SERVER_PORT || 3000;
 
-// Basic RSS proxy route
+// RSS proxy route
 app.get('/feed', async (req, res) => {
   const { url } = req.query;
   
@@ -17,8 +17,18 @@ app.get('/feed', async (req, res) => {
   }
 
   try {
-    // TODO: Implement RSS fetching and processing
-    res.status(501).json({ error: 'RSS processing not implemented yet' });
+    const { fetchFeed, replaceAudioUrls } = await import('./services/rssService.js');
+    
+    // Fetch and parse RSS feed
+    const feed = await fetchFeed(url);
+    console.log(`Fetched RSS feed: ${feed.title} (${feed.episodes.length} episodes)`);
+    
+    // Replace audio URLs with local proxy URLs
+    const modifiedXml = replaceAudioUrls(feed);
+    
+    // TODO: Queue first 3 episodes for background processing
+    
+    res.type('application/rss+xml').send(modifiedXml);
   } catch (error) {
     console.error('Error processing RSS feed:', error);
     res.status(500).json({ error: 'Failed to process RSS feed' });

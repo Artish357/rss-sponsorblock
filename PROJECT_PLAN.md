@@ -39,6 +39,10 @@ podmirror/
 │   ├── audio/{feed_hash}/{episode_guid}.mp3
 │   └── storage.db
 ├── temp/
+├── test-data/               # Test RSS feeds
+│   ├── README.md            # Test data documentation
+│   ├── conspirituality-rss.xml
+│   └── behind-the-bastards-rss.xml
 ├── .env.example             # Environment config template
 └── .env                     # Environment config (not in git)
 ```
@@ -156,6 +160,69 @@ const removeAds = async (inputPath, outputPath, adSegments) => {
 };
 ```
 
+## RSS Service Implementation
+
+### RSS Fetching (`fetchFeed`)
+```javascript
+export const fetchFeed = async (url) => {
+  // 1. Fetch RSS XML from external URL
+  const response = await fetch(url);
+  const xmlData = await response.text();
+  
+  // 2. Parse XML using xml2js
+  const parser = new xml2js.Parser();
+  const result = await parser.parseStringPromise(xmlData);
+  
+  // 3. Generate feed hash for storage organization
+  const feedHash = crypto.createHash('md5').update(url).digest('hex');
+  
+  // 4. Extract episode metadata
+  const episodes = result.rss.channel[0].item.map(item => ({
+    title: item.title[0],
+    guid: item.guid[0]._ || item.guid[0],
+    audioUrl: item.enclosure[0].$.url,
+    description: item.description[0],
+    pubDate: item.pubDate[0]
+  }));
+  
+  return {
+    feedHash,
+    title: result.rss.channel[0].title[0],
+    description: result.rss.channel[0].description[0],
+    episodes,
+    originalXml: xmlData
+  };
+};
+```
+
+### URL Replacement (`replaceAudioUrls`)
+```javascript
+export const replaceAudioUrls = (feed) => {
+  // 1. Replace original audio URLs with local proxy URLs
+  // Format: /audio/{feedHash}/{episodeGuid}.mp3
+  const modifiedXml = feed.originalXml.replace(
+    /<enclosure[^>]+url="([^"]+)"([^>]*)>/g,
+    (match, originalUrl, attributes) => {
+      const episode = feed.episodes.find(ep => ep.audioUrl === originalUrl);
+      if (episode) {
+        const localUrl = `${process.env.SERVER_BASE_URL}/audio/${feed.feedHash}/${episode.guid}.mp3?url=${encodeURIComponent(originalUrl)}`;
+        return `<enclosure url="${localUrl}"${attributes}>`;
+      }
+      return match;
+    }
+  );
+  
+  return modifiedXml;
+};
+```
+
+### Integration Steps
+1. **RSS Service**: Implement fetchFeed() and replaceAudioUrls() functions
+2. **XML Parsing**: Use xml2js for robust RSS parsing
+3. **Feed Hashing**: Generate MD5 hash from RSS URL for storage organization
+4. **URL Proxying**: Replace audio URLs with local proxy endpoints
+5. **Server Integration**: Connect RSS service to /feed route
+
 ## Database Schema
 ```sql
 CREATE TABLE episodes (
@@ -206,23 +273,18 @@ npx @modelcontextprotocol/server-sqlite --db-path ./storage/storage.db
 - Analyze processing statistics
 - Debug cache hit/miss patterns
 
-### JavaScript MCP Server
-```bash
-npx @yannbam/fresh-js-mcp
-```
-- Test code snippets in REPL
-- Prototype Gemini response parsing
-- Debug FFmpeg command generation
-- Test timestamp conversions
-- Validate RSS manipulation logic
-
 ## Implementation Steps
 
-1. Express server with RSS and audio routes
-2. SQLite database and file storage
-3. RSS parsing and URL replacement
+1. ✅ **RSS Service**: RSS fetching and URL replacement - **COMPLETED**
+   - RSS feed fetching from external URLs
+   - XML parsing with xml2js
+   - Feed hash generation (MD5)
+   - Episode metadata extraction
+   - Audio URL replacement with local proxy URLs
+   - Reusable `generateAudioUrl()` function
+2. Express server with RSS and audio routes (RSS route completed)
+3. SQLite database and file storage
 4. Gemini 2.5 Flash integration
 5. FFmpeg audio processing
 6. Audio serving with range requests
 7. Cleanup and error handling
-8. Set up MCP servers for development
