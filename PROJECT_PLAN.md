@@ -158,14 +158,13 @@ const removeAds = async (inputPath, outputPath, adSegments) => {
 ## Database Schema
 ```sql
 CREATE TABLE episodes (
-  id INTEGER PRIMARY KEY,
-  feed_hash TEXT,
-  episode_guid TEXT,
+  feed_hash TEXT NOT NULL,
+  episode_guid TEXT NOT NULL,
   original_url TEXT,
   file_path TEXT,
   ad_segments TEXT, -- JSON
-  processed_at TIMESTAMP,
-  UNIQUE(feed_hash, episode_guid)
+  processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (feed_hash, episode_guid)
 );
 ```
 
