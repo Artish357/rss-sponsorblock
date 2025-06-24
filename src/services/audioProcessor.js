@@ -1,7 +1,6 @@
 // FFmpeg audio processing for ad removal
 import ffmpeg from 'fluent-ffmpeg';
 import { mkdirSync } from 'fs';
-import { unlink } from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
@@ -63,21 +62,35 @@ export const getAudioDuration = async (inputPath) => {
  * @param {string} inputPath - Path to input audio file
  * @param {number} startSeconds - Start time in seconds
  * @param {number} durationSeconds - Duration in seconds
+ * @param {boolean} forAnalysis - If true, downsample to 16kbps mono for Gemini
  * @returns {Promise<string>} - Path to extracted chunk
  */
-export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds) => {
+export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds, forAnalysis = true) => {
   const tempDir = path.join(os.tmpdir(), 'rss-sponsorblock');
   mkdirSync(tempDir, { recursive: true });
   const tempPath = path.join(tempDir, `chunk_${Date.now()}_${startSeconds}.mp3`);
   
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    const command = ffmpeg(inputPath)
       .setStartTime(startSeconds)
       .setDuration(durationSeconds)
-      .output(tempPath)
-      .audioCodec('copy') // Fast copy without re-encoding
+      .output(tempPath);
+    
+    if (forAnalysis) {
+      // Downsample to 16kbps mono for Gemini analysis
+      command
+        .audioCodec('libmp3lame')
+        .audioBitrate('16k')
+        .audioChannels(1)
+        .audioFrequency(16000); // 16kHz sample rate
+    } else {
+      // Fast copy without re-encoding for final processing
+      command.audioCodec('copy');
+    }
+    
+    command
       .on('start', (cmd) => {
-        console.log(`Extracting chunk: ${startSeconds}s for ${durationSeconds}s`);
+        console.log(`Extracting chunk: ${startSeconds}s for ${durationSeconds}s${forAnalysis ? ' (downsampled)' : ''}`);
       })
       .on('end', () => {
         console.log(`Chunk extracted: ${tempPath}`);
@@ -93,7 +106,7 @@ export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds
 
 /**
  * Build keep segments (inverse of ad segments)
- * @param {Array} adSegments - Ad segments to remove
+ * @param {Array<{start: string, end: string, confidence: number, description: string}>} adSegments - Ad segments to remove
  * @param {number} totalDuration - Total audio duration
  * @returns {Array} - Segments to keep
  */
@@ -129,7 +142,7 @@ const buildKeepSegments = (adSegments, totalDuration) => {
  * Remove ad segments from audio file
  * @param {string} inputPath - Input audio file
  * @param {string} outputPath - Output audio file
- * @param {Array} adSegments - Ad segments to remove
+ * @param {Array<{start: string, end: string, confidence: number, description: string}>} adSegments - Ad segments to remove
  */
 export const removeAds = async (inputPath, outputPath, adSegments) => {
   if (!adSegments || adSegments.length === 0) {

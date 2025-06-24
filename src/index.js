@@ -1,8 +1,5 @@
 import express from 'express';
-import { readFileSync } from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
-import { detectAds } from './services/geminiService.js';
 
 dotenv.config();
 

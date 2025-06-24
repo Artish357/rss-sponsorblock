@@ -1,13 +1,13 @@
 # RSS SponsorBlock
 
-Self-hosted Node.js app that removes ads from podcast episodes using Gemini 2.5 Flash.
+Self-hosted Node.js app that removes ads from podcast episodes using Gemini AI.
 
 ## How It Works
 
 1. **RSS Proxy**: `GET /feed?url=original-rss` → Returns RSS with local audio URLs
 2. **Pre-Processing**: First 3 episodes start processing automatically when feed is fetched
 3. **Lazy Processing**: Any unprocessed episodes are processed on first play request
-4. **Ad Detection**: Gemini 2.5 Flash analyzes audio and returns ad timestamps
+4. **Ad Detection**: Gemini AI analyzes downsampled audio chunks and returns ad timestamps
 5. **Ad Removal**: FFmpeg cuts out ad segments and concatenates clean audio
 
 ## Architecture
@@ -57,6 +57,7 @@ rss-sponsorblock/
 
 ### Ad Detection (Iterative Chunking)
 - Process audio in 30-minute chunks
+- Downsample to 16kbps mono for 77% smaller files
 - Detect first ad break in each chunk
 - Jump 60 seconds past detected breaks
 - Support for multiple time formats (SS, MM:SS, HH:MM:SS)
@@ -84,7 +85,7 @@ CREATE TABLE episodes (
 
 Environment variables (copy `.env.example` to `.env`):
 - **GEMINI_API_KEY**: Your Gemini API key
-- **GEMINI_MODEL**: Model to use (default: gemini-2.5-flash)
+- **GEMINI_MODEL**: Model to use (default: gemini-2.5-pro)
 - **STORAGE_AUDIO_DIR**: Where to store audio files
 - **SERVER_PORT**: Port to run server on
 - **SERVER_BASE_URL**: Base URL for audio URLs in RSS
@@ -135,14 +136,15 @@ Environment variables (copy `.env.example` to `.env`):
    - Audio route with internal ID lookup ✅
    - Audio processing pipeline (TODO)
 
-5. ✅ **Gemini Integration**: Ad detection with 2.5 Flash - **COMPLETED**
+5. ✅ **Gemini Integration**: Ad detection with AI - **COMPLETED**
    - ✅ SQLite database implementation:
      - Store episode metadata (feedHash, episodeGuid, originalUrl) ✅
      - Processing status tracking (pending, downloading, analyzing, processing, processed, error) ✅
      - Ad segments storage as JSON ✅
      - File paths (original and processed audio) ✅
-   - ✅ Gemini 2.5 Flash integration:
+   - ✅ Gemini AI integration:
      - Iterative 30-minute chunk processing ✅
+     - Downsampled audio (16kbps mono) for 77% smaller uploads ✅
      - Single ad break detection per chunk ✅
      - Intelligent jumping past detected breaks ✅
      - Time format handling (SS, MM:SS, HH:MM:SS) ✅
@@ -165,5 +167,6 @@ Environment variables (copy `.env.example` to `.env`):
 - **Test Organization**: Moved test documentation to `tests/README.md`
 - **SQLite Integration**: Completed database implementation with proper schema
 - **Gemini Integration**: Completed ad detection with iterative chunking approach
+- **Performance Optimization**: Downsampled audio (16kbps mono) reduces uploads by 77%
 - **Key Innovation**: Process 30-minute chunks, detect first ad break, jump ahead to continue
 - **Current Status**: All core functionality implemented and working

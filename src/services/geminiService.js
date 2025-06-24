@@ -2,7 +2,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { transcriptPrompt, adDetectionPrompt, firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection.js';
+import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection.js';
 import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from './audioProcessor.js';
 import dotenv from 'dotenv';
 
@@ -10,78 +10,6 @@ dotenv.config();
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-/**
- * Combined function to detect ads in audio file using multi-turn chat
- * @param {string} audioPath - Path to the audio file
- * @returns {Promise<Object>} - Detected ad segments with transcript
- */
-export const detectAds = async (audioPath) => {
-  // Import the schema from prompts file
-  const { adSegmentSchema } = await import('../prompts/adDetection.js');
-  
-  // Create a single model
-  const model = genAI.getGenerativeModel({ 
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  });
-
-  console.log(process.env.GEMINI_MODEL)
-
-  // Read audio file and convert to base64
-  const audioData = readFileSync(audioPath);
-  const base64Audio = audioData.toString('base64');
-
-  // Start a single chat session
-  const chat = model.startChat({
-    history: [],
-  });
-
-  try {
-    // Step 1: Generate timestamped transcript
-    console.log('Step 1: Generating timestamped transcript...');
-    
-    const transcriptResult = await chat.sendMessage([
-      {
-        inlineData: {
-          mimeType: 'audio/mpeg',
-          data: base64Audio
-        }
-      },
-      { text: transcriptPrompt }
-    ]);
-
-    const transcript = transcriptResult.response.text();
-    console.log('Transcript generated, length:', transcript.length);
-
-    // Step 2: Analyze for ads in the same chat session with structured output
-    console.log('Step 2: Analyzing transcript for advertisements...');
-    
-    // Use options parameter to override generation config for structured output
-    const adResult = await chat.sendMessage(adDetectionPrompt, {
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: adSegmentSchema
-      }
-    });
-    
-    const jsonText = adResult.response.text();
-    
-    // Parse and validate JSON response
-    const parsed = JSON.parse(jsonText);
-    if (!parsed.ad_segments || !Array.isArray(parsed.ad_segments)) {
-      throw new Error('Invalid response format: missing ad_segments array');
-    }
-
-    return {
-      transcript,
-      ...parsed
-    };
-
-  } catch (error) {
-    console.error('Error in multi-turn ad detection:', error);
-    throw new Error(`Failed to detect ads: ${error.message}`);
-  }
-};
 
 /**
  * Detect the first ad break in an audio chunk
