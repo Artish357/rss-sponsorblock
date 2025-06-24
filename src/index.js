@@ -1,6 +1,4 @@
 import express from 'express';
-import { readFileSync } from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -31,14 +29,30 @@ app.get('/feed', async (req, res) => {
     // Store episode metadata with original URLs (secure internal storage)
     for (const episode of feed.episodes) {
       await saveEpisode(feed.feedHash, episode.guid, {
-        originalUrl: episode.audioUrl
+        original_url: episode.audioUrl
       });
     }
     
     // Replace audio URLs with local proxy URLs (no original URLs exposed)
     const modifiedXml = await replaceAudioUrls(feed);
     
-    // TODO: Queue first 3 episodes for background processing
+    // Queue first 3 episodes for background processing
+    const { processEpisodesSequentially } = await import('./services/audioProcessingService.js');
+    const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
+      feedHash: feed.feedHash,
+      episodeGuid: ep.guid,
+      originalUrl: ep.audioUrl
+    }));
+    
+    // Process in background without blocking response
+    processEpisodesSequentially(episodesToProcess)
+      .then(results => {
+        const successful = results.filter(r => r.success).length;
+        console.log(`Pre-processing complete: ${successful}/${results.length} episodes processed`);
+      })
+      .catch(error => {
+        console.error('Pre-processing failed:', error);
+      });
     
     res.type('application/rss+xml').send(modifiedXml);
   } catch (error) {
@@ -47,27 +61,70 @@ app.get('/feed', async (req, res) => {
   }
 });
 
+// Processing locks to prevent duplicate processing
+const processingLocks = new Map();
+
 // Secure audio serving route - uses internal IDs only
 app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
   const { feedHash, episodeGuid } = req.params;
+  const decodedGuid = decodeURIComponent(episodeGuid);
+  const lockKey = `${feedHash}:${decodedGuid}`;
   
   try {
     const { getEpisode } = await import('./services/storageService.js');
     
     // Look up episode metadata using internal IDs
-    const episode = await getEpisode(feedHash, decodeURIComponent(episodeGuid));
+    const episode = await getEpisode(feedHash, decodedGuid);
     
     if (!episode) {
       return res.status(404).json({ error: 'Episode not found' });
     }
     
-    // Original URL is now securely stored internally, never exposed to client
-    console.log(`Audio request for: ${episode.originalUrl}`);
+    // If already processed, serve the file
+    if (episode.status === 'processed' && episode.file_path) {
+      console.log(`Serving processed audio: ${episode.file_path}`);
+      return res.sendFile(episode.file_path, { root: process.cwd() });
+    }
     
-    // TODO: Implement audio processing and serving using episode.originalUrl
-    res.status(501).json({ 
-      error: 'Audio processing not implemented yet',
-      debug: `Episode found: ${episode.episodeGuid}` 
+    // If processing is in progress, wait for it
+    if (processingLocks.has(lockKey)) {
+      console.log(`Waiting for processing to complete: ${lockKey}`);
+      try {
+        await processingLocks.get(lockKey);
+        // Re-fetch episode after processing
+        const processed = await getEpisode(feedHash, decodedGuid);
+        if (processed && processed.file_path) {
+          return res.sendFile(processed.file_path, { root: process.cwd() });
+        }
+      } catch (error) {
+        console.error('Processing failed:', error);
+        return res.status(500).json({ error: 'Audio processing failed' });
+      }
+    }
+    
+    // Start processing if not already started
+    if (episode.status === 'pending' || episode.status === 'error') {
+      console.log(`Starting audio processing for: ${decodedGuid}`);
+      
+      const { processEpisode } = await import('./services/audioProcessingService.js');
+      const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
+      
+      // Store promise in locks map
+      processingLocks.set(lockKey, processingPromise);
+      
+      try {
+        const result = await processingPromise;
+        return res.sendFile(result.file_path, { root: process.cwd() });
+      } finally {
+        // Clean up lock
+        processingLocks.delete(lockKey);
+      }
+    }
+    
+    // Other statuses (downloading, analyzing, processing)
+    res.status(202).json({ 
+      status: episode.status,
+      message: `Episode is currently ${episode.status}. Please try again later.`
     });
   } catch (error) {
     console.error('Error serving audio:', error);
