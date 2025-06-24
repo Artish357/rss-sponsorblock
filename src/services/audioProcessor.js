@@ -146,7 +146,20 @@ const buildKeepSegments = (adSegments, totalDuration) => {
  */
 export const removeAds = async (inputPath, outputPath, adSegments) => {
   if (!adSegments || adSegments.length === 0) {
-    throw new Error('No ad segments provided');
+    // No ads to remove, just copy the file
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .audioCodec('copy')
+        .on('end', () => {
+          console.log('No ads to remove, file copied');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('FFmpeg error:', err);
+          reject(err);
+        })
+        .save(outputPath);
+    });
   }
 
   const duration = await getAudioDuration(inputPath);

@@ -17,6 +17,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
  * @returns {Promise<Object|null>} - First ad break found or null
  */
 export const detectFirstAdBreak = async (chunkPath) => {
+  if (!chunkPath) {
+    throw new Error('Failed to detect ad break: chunk path is required');
+  }
+  
   const model = genAI.getGenerativeModel({ 
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     generationConfig: {
@@ -25,10 +29,10 @@ export const detectFirstAdBreak = async (chunkPath) => {
     }
   });
 
-  const audioData = readFileSync(chunkPath);
-  const base64Audio = audioData.toString('base64');
-
   try {
+    const audioData = readFileSync(chunkPath);
+    const base64Audio = audioData.toString('base64');
+
     const result = await model.generateContent([
       {
         inlineData: {
@@ -53,6 +57,10 @@ export const detectFirstAdBreak = async (chunkPath) => {
  * @returns {Promise<Array>} - Array of all ad breaks found
  */
 export const detectAllAdBreaks = async (audioPath) => {
+  if (!audioPath) {
+    throw new Error('Invalid audio path: path is required');
+  }
+  
   const duration = await getAudioDuration(audioPath);
   const adBreaks = [];
   let currentPosition = 0; // seconds

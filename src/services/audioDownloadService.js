@@ -1,5 +1,5 @@
 // Audio download service
-import { createWriteStream, mkdirSync } from 'fs';
+import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 import axios from 'axios';
 
@@ -78,13 +78,8 @@ export const getExistingAudioPath = (feedHash, episodeGuid) => {
     `${episodeGuid}.mp3`
   );
 
-  try {
-    const fs = require('fs');
-    if (fs.existsSync(filePath)) {
-      return filePath;
-    }
-  } catch (error) {
-    // File doesn't exist
+  if (existsSync(filePath)) {
+    return filePath;
   }
 
   return null;

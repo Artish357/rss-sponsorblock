@@ -134,14 +134,20 @@ export const saveEpisode = async (feedHash, episodeGuid, data) => {
  * @returns {Promise<void>}
  */
 export const updateEpisodeStatus = async (feedHash, episodeGuid, status) => {
-  await new Promise((resolve, reject) => {
+  // First try to update
+  const result = await new Promise((resolve, reject) => {
     db.run(
       `UPDATE episodes SET status = ? WHERE feed_hash = ? AND episode_guid = ?`,
       [status, feedHash, episodeGuid],
-      (err) => {
+      function(err) {
         if (err) reject(err);
-        else resolve();
+        else resolve(this.changes);
       }
     );
   });
+  
+  // If no rows were updated, insert a new record
+  if (result === 0) {
+    await saveEpisode(feedHash, episodeGuid, { status });
+  }
 };
