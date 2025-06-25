@@ -3,13 +3,22 @@ import ffmpeg from 'fluent-ffmpeg';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
+import type { AdSegmentInput } from '../types/index.js';
+
+interface KeepSegment {
+  start: number;
+  end: number;
+}
+
+interface AdSegmentSeconds {
+  start: number;
+  end: number;
+}
 
 /**
  * Convert HH:MM:SS to seconds
- * @param {string} timeStr - Time in HH:MM:SS format
- * @returns {number} - Time in seconds
  */
-export const timeToSeconds = (timeStr) => {
+export const timeToSeconds = (timeStr: string): number => {
   const parts = timeStr.split(':').map(p => parseFloat(p));
 
   if (parts.length === 1) {
@@ -28,10 +37,8 @@ export const timeToSeconds = (timeStr) => {
 
 /**
  * Convert seconds to HH:MM:SS format
- * @param {number} seconds - Time in seconds
- * @returns {string} - Time in HH:MM:SS format
  */
-export const secondsToTime = (seconds) => {
+export const secondsToTime = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -45,28 +52,26 @@ export const secondsToTime = (seconds) => {
 
 /**
  * Get audio duration
- * @param {string} inputPath - Path to audio file
- * @returns {Promise<number>} - Duration in seconds
  */
-export const getAudioDuration = async (inputPath) => new Promise((resolve, reject) => {
+export const getAudioDuration = async (inputPath: string): Promise<number> => new Promise((resolve, reject) => {
   ffmpeg.ffprobe(inputPath, (err, metadata) => {
     if (err) {
       reject(err);
     } else {
-      resolve(metadata.format.duration);
+      resolve(metadata.format.duration || 0);
     }
   });
 });
 
 /**
  * Extract a chunk of audio from a larger file
- * @param {string} inputPath - Path to input audio file
- * @param {number} startSeconds - Start time in seconds
- * @param {number} durationSeconds - Duration in seconds
- * @param {boolean} forAnalysis - If true, downsample to 16kbps mono for Gemini
- * @returns {Promise<string>} - Path to extracted chunk
  */
-export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds, forAnalysis = true) => {
+export const extractAudioChunk = async (
+  inputPath: string, 
+  startSeconds: number, 
+  durationSeconds: number, 
+  forAnalysis = true
+): Promise<string> => {
   const tempDir = path.join(os.tmpdir(), 'rss-sponsorblock');
   mkdirSync(tempDir, { recursive: true });
   const tempPath = path.join(tempDir, `chunk_${Date.now()}_${startSeconds}.mp3`);
@@ -107,13 +112,10 @@ export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds
 
 /**
  * Build keep segments (inverse of ad segments)
- * @param {Array<{start: string, end: string, confidence: number, description: string}>} adSegments - Ad segments to remove
- * @param {number} totalDuration - Total audio duration
- * @returns {Array} - Segments to keep
  */
-const buildKeepSegments = (adSegments, totalDuration) => {
+const buildKeepSegments = (adSegments: AdSegmentInput[], totalDuration: number): KeepSegment[] => {
   // Convert ad segments to seconds
-  const adsInSeconds = adSegments.map(seg => ({
+  const adsInSeconds: AdSegmentSeconds[] = adSegments.map(seg => ({
     start: timeToSeconds(seg.start),
     end: timeToSeconds(seg.end)
   }));
@@ -121,7 +123,7 @@ const buildKeepSegments = (adSegments, totalDuration) => {
   // Sort by start time
   adsInSeconds.sort((a, b) => a.start - b.start);
 
-  const keepSegments = [];
+  const keepSegments: KeepSegment[] = [];
   let lastEnd = 0;
 
   for (const ad of adsInSeconds) {
@@ -141,11 +143,12 @@ const buildKeepSegments = (adSegments, totalDuration) => {
 
 /**
  * Remove ad segments from audio file
- * @param {string} inputPath - Input audio file
- * @param {string} outputPath - Output audio file
- * @param {Array<{start: string, end: string, confidence: number, description: string}>} adSegments - Ad segments to remove
  */
-export const removeAds = async (inputPath, outputPath, adSegments) => {
+export const removeAds = async (
+  inputPath: string, 
+  outputPath: string, 
+  adSegments: AdSegmentInput[]
+): Promise<void> => {
   if (!adSegments || adSegments.length === 0) {
     // No ads to remove, just copy the file
     return new Promise((resolve, reject) => {
@@ -173,8 +176,8 @@ export const removeAds = async (inputPath, outputPath, adSegments) => {
     const command = ffmpeg(inputPath);
 
     // Build filter complex for concatenating segments
-    const filters = [];
-    const inputs = [];
+    const filters: string[] = [];
+    const inputs: string[] = [];
 
     keepSegments.forEach((seg, i) => {
       filters.push(`[0:a]atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS[a${i}]`);

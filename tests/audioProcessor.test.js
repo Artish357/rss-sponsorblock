@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.js';
+import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.ts';
 import { mkdirSync, rmSync, existsSync, promises as fsPromises } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
