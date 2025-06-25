@@ -6,6 +6,9 @@
 # Node modules
 node_modules/
 
+# TypeScript build output
+dist/
+
 # Storage directories
 storage/
 temp/
