@@ -2,14 +2,18 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
+import { fetchFeed, replaceAudioUrls } from '../src/services/rssService.js';
+import { initDatabase, saveEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
+import { processEpisode } from '../src/services/audioProcessingService.js';
+import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService.js';
+import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.js';
+import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService.js';
 
 describe('Integration Tests - API Contracts', () => {
   const testDir = './test-integration';
   
   test('RSS service integration', async () => {
     // Test that RSS service modules integrate correctly
-    const { fetchFeed, replaceAudioUrls } = await import('../src/services/rssService.js');
-    
     // Verify functions exist and have correct signatures
     assert.strictEqual(typeof fetchFeed, 'function');
     assert.strictEqual(typeof replaceAudioUrls, 'function');
@@ -19,8 +23,6 @@ describe('Integration Tests - API Contracts', () => {
 
   test('Storage service integration', async () => {
     // Test storage service initialization
-    const { initDatabase, saveEpisode, getEpisode, closeDatabase } = await import('../src/services/storageService.js');
-    
     await initDatabase(true); // Test mode
     
     // Test basic operations
@@ -49,9 +51,6 @@ describe('Integration Tests - API Contracts', () => {
 
   test('Audio processing pipeline integration', async () => {
     // Test that all services can be imported and work together
-    const { processEpisode } = await import('../src/services/audioProcessingService.js');
-    const { initDatabase, saveEpisode, closeDatabase } = await import('../src/services/storageService.js');
-    
     await initDatabase(true);
     
     // Pre-save a processed episode to test caching
@@ -77,8 +76,6 @@ describe('Integration Tests - API Contracts', () => {
 
   test('Service error handling', async () => {
     // Test error handling across services
-    const { detectAllAdBreaks } = await import('../src/services/geminiService.js');
-    
     // Should handle null path
     await assert.rejects(
       detectAllAdBreaks(null),
@@ -111,19 +108,16 @@ describe('Integration Tests - API Contracts', () => {
 
   test('Module exports validation', async () => {
     // Verify all required exports are present
-    const audioProcessor = await import('../src/services/audioProcessor.js');
-    assert.ok(audioProcessor.extractAudioChunk);
-    assert.ok(audioProcessor.removeAds);
-    assert.ok(audioProcessor.getAudioDuration);
-    assert.ok(audioProcessor.timeToSeconds);
-    assert.ok(audioProcessor.secondsToTime);
+    assert.ok(extractAudioChunk);
+    assert.ok(removeAds);
+    assert.ok(getAudioDuration);
+    assert.ok(timeToSeconds);
+    assert.ok(secondsToTime);
     
-    const geminiService = await import('../src/services/geminiService.js');
-    assert.ok(geminiService.detectFirstAdBreak);
-    assert.ok(geminiService.detectAllAdBreaks);
+    assert.ok(detectFirstAdBreak);
+    assert.ok(detectAllAdBreaks);
     
-    const downloadService = await import('../src/services/audioDownloadService.js');
-    assert.ok(downloadService.downloadAudio);
-    assert.ok(downloadService.getExistingAudioPath);
+    assert.ok(downloadAudio);
+    assert.ok(getExistingAudioPath);
   });
 });

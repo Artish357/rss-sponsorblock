@@ -1,5 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import { initDatabase, saveEpisode, getEpisode } from './services/storageService.js';
+import { fetchFeed, replaceAudioUrls } from './services/rssService.js';
+import { processEpisodesSequentially, processEpisode } from './services/audioProcessingService.js';
 
 dotenv.config();
 
@@ -7,7 +10,6 @@ const app = express();
 const PORT = process.env.SERVER_PORT || 3000;
 
 // Initialize storage service
-import { initDatabase } from './services/storageService.js';
 await initDatabase();
 
 // RSS proxy route
@@ -19,9 +21,6 @@ app.get('/feed', async (req, res) => {
   }
 
   try {
-    const { fetchFeed, replaceAudioUrls } = await import('./services/rssService.js');
-    const { saveEpisode } = await import('./services/storageService.js');
-    
     // Fetch and parse RSS feed
     const feed = await fetchFeed(url);
     console.log(`Fetched RSS feed: ${feed.title} (${feed.episodes.length} episodes)`);
@@ -37,7 +36,6 @@ app.get('/feed', async (req, res) => {
     const modifiedXml = await replaceAudioUrls(feed);
     
     // Queue first 3 episodes for background processing
-    const { processEpisodesSequentially } = await import('./services/audioProcessingService.js');
     const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
       feedHash: feed.feedHash,
       episodeGuid: ep.guid,
@@ -71,8 +69,6 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
   const lockKey = `${feedHash}:${decodedGuid}`;
   
   try {
-    const { getEpisode } = await import('./services/storageService.js');
-    
     // Look up episode metadata using internal IDs
     const episode = await getEpisode(feedHash, decodedGuid);
     
@@ -106,7 +102,6 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
     if (episode.status === 'pending' || episode.status === 'error') {
       console.log(`Starting audio processing for: ${decodedGuid}`);
       
-      const { processEpisode } = await import('./services/audioProcessingService.js');
       const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
       
       // Store promise in locks map
