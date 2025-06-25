@@ -1,15 +1,23 @@
 // Knex storage service
-import knex from 'knex';
+import knex, { type Knex } from 'knex';
 import knexConfig from '../../knexfile.js';
 import { dirname } from 'path';
 import { mkdirSync } from 'fs';
+import type { Episode, AdSegment, DatabaseConfig } from '../types/index.js';
 
 // Database instance
-/** @type {import('knex').Knex | null} */
-let db = null;
+let db: Knex | null = null;
+
+// Episode data for operations (derived from main Episode interface)
+type EpisodeData = Partial<Pick<Episode, 'original_url' | 'file_path' | 'ad_segments' | 'status'>>;
+
+// Database row interface (matches SQL schema with JSON string for ad_segments)
+type EpisodeRow = Omit<Episode, 'ad_segments'> & {
+  ad_segments: string | null; // JSON string in database
+};
 
 // Export database close function for testing
-export const closeDatabase = async () => {
+export const closeDatabase = async (): Promise<void> => {
   if (!db) {
     return;
   }
@@ -17,7 +25,7 @@ export const closeDatabase = async () => {
   db = null;
 };
 
-export const initDatabase = async (testMode = false) => {
+export const initDatabase = async (testMode = false): Promise<void> => {
   // Close existing database if any
   if (db) {
     await closeDatabase();
@@ -25,13 +33,13 @@ export const initDatabase = async (testMode = false) => {
 
   // Select environment based on testMode
   const environment = testMode ? 'test' : (process.env.NODE_ENV || 'development');
-  const config = knexConfig[environment];
+  const config = (knexConfig as Record<string, DatabaseConfig>)[environment];
 
   // Ensure the directory exists for the database file
   const dbDir = dirname(config.connection.filename);
   try {
     mkdirSync(dbDir, { recursive: true });
-  } catch (error) {
+  } catch (error: any) {
     // Only throw if it's not an "already exists" error
     if (error.code !== 'EEXIST') {
       throw new Error(`Failed to create database directory: ${error.message}`);
@@ -47,8 +55,12 @@ export const initDatabase = async (testMode = false) => {
   console.log(`Storage service initialized (Knex: ${config.connection.filename})`);
 };
 
-export const getEpisode = async (feedHash, episodeGuid) => {
-  const episode = await db('episodes')
+export const getEpisode = async (feedHash: string, episodeGuid: string): Promise<Episode | null> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const episode = await db<EpisodeRow>('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .first();
 
@@ -57,42 +69,41 @@ export const getEpisode = async (feedHash, episodeGuid) => {
   }
 
   // Parse ad_segments JSON if present
-  if (episode.ad_segments) {
-    episode.ad_segments = JSON.parse(episode.ad_segments);
-  }
+  const parsedAdSegments = episode.ad_segments ? JSON.parse(episode.ad_segments) as AdSegment[] : null;
 
-  return episode;
+  return {
+    ...episode,
+    ad_segments: parsedAdSegments
+  };
 };
 
 /**
  * Get all episodes for a feed
- * @param {string} feedHash - Feed hash
- * @returns {Promise<Array>} - Array of episodes
  */
-export const getEpisodesByFeed = async (feedHash) => {
-  const episodes = await db('episodes')
+export const getEpisodesByFeed = async (feedHash: string): Promise<Episode[]> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const episodes = await db<EpisodeRow>('episodes')
     .where({ feed_hash: feedHash })
     .orderBy('processed_at', 'desc');
 
   // Parse ad_segments JSON for each episode
-  episodes.forEach(episode => {
-    if (episode.ad_segments) {
-      episode.ad_segments = JSON.parse(episode.ad_segments);
-    }
-  });
-
-  return episodes;
+  return episodes.map(episode => ({
+    ...episode,
+    ad_segments: episode.ad_segments ? JSON.parse(episode.ad_segments) as AdSegment[] : null
+  }));
 };
 
 /**
  * Create a new episode record (fails if already exists)
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @param {Object} data - Episode data
- * @returns {Promise<Object>} - Created episode
- * @throws {Error} - If episode already exists
  */
-export const createEpisode = async (feedHash, episodeGuid, data) => {
+export const createEpisode = async (feedHash: string, episodeGuid: string, data: EpisodeData): Promise<Episode> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   // Check if episode already exists
   const existing = await getEpisode(feedHash, episodeGuid);
   if (existing) {
@@ -111,47 +122,51 @@ export const createEpisode = async (feedHash, episodeGuid, data) => {
     processed_at: db.fn.now()
   });
 
-  return getEpisode(feedHash, episodeGuid);
+  const result = await getEpisode(feedHash, episodeGuid);
+  if (!result) {
+    throw new Error('Failed to create episode');
+  }
+  return result;
 };
 
 /**
  * Update an existing episode record (fails if not exists)
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @param {Object} data - Episode data to update
- * @returns {Promise<Object>} - Updated episode
- * @throws {Error} - If episode doesn't exist
  */
-export const updateEpisode = async (feedHash, episodeGuid, data) => {
+export const updateEpisode = async (feedHash: string, episodeGuid: string, data: EpisodeData): Promise<Episode> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   // Check if episode exists
   const existing = await getEpisode(feedHash, episodeGuid);
   if (!existing) {
     throw new Error(`Episode not found: ${feedHash}/${episodeGuid}`);
   }
 
-  const updates = {
-    processed_at: db.fn.now(),
-    original_url: data.original_url,
-    file_path: data.file_path,
-    ad_segments: data.ad_segments !== undefined ? JSON.stringify(data.ad_segments) : undefined,
-    status: data.status
+  const updates: Partial<EpisodeRow> = {
+    processed_at: db.fn.now() as any
   };
+
+  if (data.original_url !== undefined) updates.original_url = data.original_url;
+  if (data.file_path !== undefined) updates.file_path = data.file_path;
+  if (data.ad_segments !== undefined) updates.ad_segments = JSON.stringify(data.ad_segments);
+  if (data.status !== undefined) updates.status = data.status;
 
   await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .update(updates);
 
-  return getEpisode(feedHash, episodeGuid);
+  const result = await getEpisode(feedHash, episodeGuid);
+  if (!result) {
+    throw new Error('Failed to update episode');
+  }
+  return result;
 };
 
 /**
  * Create or update an episode record
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @param {Object} data - Episode data
- * @returns {Promise<Object>} - Saved episode
  */
-export const createOrUpdateEpisode = async (feedHash, episodeGuid, data) => {
+export const createOrUpdateEpisode = async (feedHash: string, episodeGuid: string, data: EpisodeData): Promise<Episode> => {
   const existing = await getEpisode(feedHash, episodeGuid);
 
   if (existing) {
@@ -163,11 +178,12 @@ export const createOrUpdateEpisode = async (feedHash, episodeGuid, data) => {
 
 /**
  * Delete a single episode
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @returns {Promise<boolean>} - True if deleted, false if not found
  */
-export const deleteEpisode = async (feedHash, episodeGuid) => {
+export const deleteEpisode = async (feedHash: string, episodeGuid: string): Promise<boolean> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   const result = await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .delete();
@@ -177,10 +193,12 @@ export const deleteEpisode = async (feedHash, episodeGuid) => {
 
 /**
  * Delete all episodes for a feed
- * @param {string} feedHash - Feed hash
- * @returns {Promise<number>} - Number of deleted episodes
  */
-export const deleteEpisodesByFeed = async (feedHash) => {
+export const deleteEpisodesByFeed = async (feedHash: string): Promise<number> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   const result = await db('episodes')
     .where({ feed_hash: feedHash })
     .delete();
@@ -190,9 +208,12 @@ export const deleteEpisodesByFeed = async (feedHash) => {
 
 /**
  * Delete episodes older than STORAGE_CLEANUP_DAYS
- * @returns {Promise<number>} - Number of deleted episodes
  */
-export const deleteOldEpisodes = async () => {
+export const deleteOldEpisodes = async (): Promise<number> => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   const cleanupDays = parseInt(process.env.STORAGE_CLEANUP_DAYS || '30', 10);
 
   const result = await db('episodes')
