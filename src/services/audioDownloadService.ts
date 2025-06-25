@@ -1,16 +1,12 @@
 // Audio download service
 import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 
 /**
  * Download audio file from URL
- * @param {string} url - Audio URL to download
- * @param {string} feedHash - Feed hash for organizing storage
- * @param {string} episodeGuid - Episode GUID for file naming
- * @returns {Promise<string>} - Path to downloaded file
  */
-export const downloadAudio = async (url, feedHash, episodeGuid) => {
+export const downloadAudio = async (url: string, feedHash: string, episodeGuid: string): Promise<string> => {
   // Create directory structure
   const audioDir = path.join(process.env.STORAGE_AUDIO_DIR || './storage/audio', feedHash, 'original');
   mkdirSync(audioDir, { recursive: true });
@@ -26,7 +22,7 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
     // Download audio with timeout
     const timeout = parseInt(process.env.DOWNLOAD_TIMEOUT || '300000', 10); // 5 minutes default
 
-    const response = await axios({
+    const response: AxiosResponse = await axios({
       method: 'GET',
       url,
       responseType: 'stream',
@@ -37,7 +33,7 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
     });
 
     // Check content type
-    const contentType = response.headers['content-type'];
+    const contentType = response.headers['content-type'] as string | undefined;
     if (!contentType || !contentType.includes('audio')) {
       console.warn(`Warning: Unexpected content-type: ${contentType}`);
     }
@@ -47,7 +43,7 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
     response.data.pipe(writer);
 
     // Wait for download to complete
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       writer.on('finish', resolve);
       writer.on('error', reject);
       response.data.on('error', reject);
@@ -56,7 +52,7 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
     console.log(`Download complete: ${filePath}`);
     return filePath;
 
-  } catch (error) {
+  } catch (error: any) {
     if (error.code === 'ECONNABORTED') {
       throw new Error('Download timeout exceeded');
     }
@@ -66,11 +62,8 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
 
 /**
  * Check if audio file already exists
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @returns {string|null} - File path if exists, null otherwise
  */
-export const getExistingAudioPath = (feedHash, episodeGuid) => {
+export const getExistingAudioPath = (feedHash: string, episodeGuid: string): string | null => {
   const filePath = path.join(
     process.env.STORAGE_AUDIO_DIR || './storage/audio',
     feedHash,

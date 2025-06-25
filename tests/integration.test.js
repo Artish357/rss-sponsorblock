@@ -2,11 +2,11 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { rmSync } from 'fs';
 import { fetchFeed, replaceAudioUrls } from '../src/services/rssService.js';
-import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
+import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.ts';
 import { processEpisode } from '../src/services/audioProcessingService.js';
 import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService.js';
-import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.js';
-import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService.js';
+import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.ts';
+import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService.ts';
 
 describe('Integration Tests - API Contracts', () => {
   const testDir = './test-integration';
