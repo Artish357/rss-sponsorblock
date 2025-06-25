@@ -1,7 +1,7 @@
 // Audio download service
 import { createWriteStream, mkdirSync, existsSync } from 'fs';
 import path from 'path';
-import axios, { type AxiosResponse } from 'axios';
+import axios, { AxiosError, type AxiosResponse } from 'axios';
 
 /**
  * Download audio file from URL
@@ -52,11 +52,11 @@ export const downloadAudio = async (url: string, feedHash: string, episodeGuid: 
     console.log(`Download complete: ${filePath}`);
     return filePath;
 
-  } catch (error: any) {
-    if (error.code === 'ECONNABORTED') {
+  } catch (error) {
+    if (error instanceof AxiosError && error.code === 'ECONNABORTED') {
       throw new Error('Download timeout exceeded');
     }
-    throw new Error(`Download failed: ${error.message}`);
+    throw new Error(`Download failed: ${error instanceof Error && error.message}`);
   }
 };
 

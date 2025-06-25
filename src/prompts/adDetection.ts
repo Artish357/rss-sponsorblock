@@ -1,5 +1,7 @@
 // Customizable prompts and schemas for two-step Gemini ad detection
 
+import { ResponseSchema, SchemaType } from '@google/generative-ai';
+
 export const firstAdBreakPrompt = `
 Analyze this audio segment and find the FIRST ad break only.
 
@@ -31,27 +33,27 @@ Or if no ads found:
 `;
 
 // Schema for single ad break detection
-export const firstAdBreakSchema = {
-  type: 'object',
+export const firstAdBreakSchema: ResponseSchema = {
+  type:  SchemaType.OBJECT,
   properties: {
     ad_break: {
-      type: 'object',
+      type:  SchemaType.OBJECT,
       nullable: true,
       properties: {
         start: {
-          type: 'string',
+          type:  SchemaType.STRING,
           description: 'Start time of ad break in HH:MM:SS format'
         },
         end: {
-          type: 'string',
+          type:  SchemaType.STRING,
           description: 'End time of ad break when content resumes in HH:MM:SS format'
         },
         confidence: {
-          type: 'number',
+          type:  SchemaType.NUMBER,
           description: 'Confidence score between 0.0 and 1.0'
         },
         description: {
-          type: 'string',
+          type:  SchemaType.STRING,
           description: 'Brief description of the ad break content'
         }
       },

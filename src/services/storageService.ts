@@ -39,11 +39,8 @@ export const initDatabase = async (testMode = false): Promise<void> => {
   const dbDir = dirname(config.connection.filename);
   try {
     mkdirSync(dbDir, { recursive: true });
-  } catch (error: any) {
-    // Only throw if it's not an "already exists" error
-    if (error.code !== 'EEXIST') {
-      throw new Error(`Failed to create database directory: ${error.message}`);
-    }
+  } catch (error) {
+    throw new Error(`Failed to create database directory: ${error instanceof Error && error.message}`);
   }
 
   // Initialize Knex
