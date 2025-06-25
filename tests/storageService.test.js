@@ -3,6 +3,8 @@ import assert from 'node:assert';
 import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
+import knex from 'knex';
+import knexConfig from '../knexfile.js';
 
 describe('Storage Service', () => {
   beforeEach(async () => {
@@ -13,7 +15,16 @@ describe('Storage Service', () => {
   afterEach(async () => {
     // Close database connection
     await closeDatabase();
-    // Clean up test database
+    
+    // Clean up test database and migrations
+    try {
+      const db = knex(knexConfig.test);
+      await db.migrate.rollback();
+      await db.destroy();
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
+    
     try {
       unlinkSync(join('./storage', 'test.db'));
     } catch (error) {

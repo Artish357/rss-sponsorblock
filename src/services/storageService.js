@@ -1,38 +1,18 @@
-// SQLite storage service
-import sqlite3 from 'sqlite3';
-import path from 'path';
+// Knex storage service
+import knex from 'knex';
+import knexConfig from '../../knexfile.js';
+import { dirname } from 'path';
 import { mkdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-
-// Get absolute path to project root
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.join(__dirname, '..', '..');
-
-// Create storage directory if it doesn't exist
-const storageDir = path.join(projectRoot, 'storage');
-try {
-  mkdirSync(storageDir, { recursive: true });
-} catch (error) {
-  // Directory already exists
-}
 
 // Database instance
-/** @type {import('sqlite3').Database | null} */
+/** @type {import('knex').Knex | null} */
 let db = null;
 
 // Export database close function for testing
-export const closeDatabase = () => {
-  if (!db) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    db.close((err) => {
-      if (err) reject(err);
-      else {
-        db = null;
-        resolve();
-      }
-    });
-  });
+export const closeDatabase = async () => {
+  if (!db) return;
+  await db.destroy();
+  db = null;
 };
 
 export const initDatabase = async (testMode = false) => {
@@ -41,68 +21,41 @@ export const initDatabase = async (testMode = false) => {
     await closeDatabase();
   }
   
-  // Use test database path if in test mode
-  const dbName = testMode ? 'test.db' : 'storage.db';
-  const dbPath = path.join(storageDir, dbName);
+  // Select environment based on testMode
+  const environment = testMode ? 'test' : (process.env.NODE_ENV || 'development');
+  const config = knexConfig[environment];
   
-  // Initialize database
-  db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-    if (err) {
-      console.error('Error opening database:', err);
+  // Ensure the directory exists for the database file
+  const dbDir = dirname(config.connection.filename);
+  try {
+    mkdirSync(dbDir, { recursive: true });
+  } catch (error) {
+    // Only throw if it's not an "already exists" error
+    if (error.code !== 'EEXIST') {
+      throw new Error(`Failed to create database directory: ${error.message}`);
     }
-  });
+  }
   
-  // Create episodes table
-  await new Promise((resolve, reject) => {
-    db.run(`
-      CREATE TABLE IF NOT EXISTS episodes (
-        feed_hash TEXT NOT NULL,
-        episode_guid TEXT NOT NULL,
-        original_url TEXT,
-        file_path TEXT,
-        ad_segments TEXT, -- JSON
-        status TEXT DEFAULT 'pending',
-        processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (feed_hash, episode_guid)
-      )
-    `, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
+  // Initialize Knex
+  db = knex(config);
   
-  // Add status column if it doesn't exist (for existing databases)
-  await new Promise((resolve, reject) => {
-    db.run(`
-      ALTER TABLE episodes ADD COLUMN status TEXT DEFAULT 'pending'
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column name')) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
+  // Run migrations
+  await db.migrate.latest();
   
-  console.log(`Storage service initialized (SQLite: ${dbPath})`);
+  console.log(`Storage service initialized (Knex: ${config.connection.filename})`);
 };
 
 export const getEpisode = async (feedHash, episodeGuid) => {
-  const episode = await new Promise((resolve, reject) => {
-    db.get(
-      'SELECT * FROM episodes WHERE feed_hash = ? AND episode_guid = ?',
-      [feedHash, episodeGuid],
-      (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      }
-    );
-  });
+  const episode = await db('episodes')
+    .where({ feed_hash: feedHash, episode_guid: episodeGuid })
+    .first();
   
   if (!episode) return null;
   
   // Parse ad_segments JSON if present
-  episode.ad_segments &&= JSON.parse(episode.ad_segments);
+  if (episode.ad_segments) {
+    episode.ad_segments = JSON.parse(episode.ad_segments);
+  }
   
   return episode;
 };
@@ -113,16 +66,9 @@ export const getEpisode = async (feedHash, episodeGuid) => {
  * @returns {Promise<Array>} - Array of episodes
  */
 export const getEpisodesByFeed = async (feedHash) => {
-  const episodes = await new Promise((resolve, reject) => {
-    db.all(
-      'SELECT * FROM episodes WHERE feed_hash = ? ORDER BY processed_at DESC',
-      [feedHash],
-      (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      }
-    );
-  });
+  const episodes = await db('episodes')
+    .where({ feed_hash: feedHash })
+    .orderBy('processed_at', 'desc');
   
   // Parse ad_segments JSON for each episode
   episodes.forEach(episode => {
@@ -151,17 +97,14 @@ export const createEpisode = async (feedHash, episodeGuid, data) => {
   
   const adSegmentsJson = data.ad_segments ? JSON.stringify(data.ad_segments) : null;
   
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO episodes 
-       (feed_hash, episode_guid, original_url, file_path, ad_segments, status, processed_at) 
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [feedHash, episodeGuid, data.original_url, data.file_path || null, adSegmentsJson, data.status || 'pending'],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
+  await db('episodes').insert({
+    feed_hash: feedHash,
+    episode_guid: episodeGuid,
+    original_url: data.original_url,
+    file_path: data.file_path || null,
+    ad_segments: adSegmentsJson,
+    status: data.status || 'pending',
+    processed_at: db.fn.now()
   });
   
   return getEpisode(feedHash, episodeGuid);
@@ -182,43 +125,17 @@ export const updateEpisode = async (feedHash, episodeGuid, data) => {
     throw new Error(`Episode not found: ${feedHash}/${episodeGuid}`);
   }
   
-  const updates = [];
-  const values = [];
+  const updates = {
+    processed_at: db.fn.now(),
+    original_url: data.original_url,
+    file_path: data.file_path,
+    ad_segments: data.ad_segments !== undefined ? JSON.stringify(data.ad_segments) : undefined,
+    status: data.status
+  };
   
-  if (data.original_url !== undefined) {
-    updates.push('original_url = ?');
-    values.push(data.original_url);
-  }
-  if (data.file_path !== undefined) {
-    updates.push('file_path = ?');
-    values.push(data.file_path);
-  }
-  if (data.ad_segments !== undefined) {
-    updates.push('ad_segments = ?');
-    values.push(JSON.stringify(data.ad_segments));
-  }
-  if (data.status !== undefined) {
-    updates.push('status = ?');
-    values.push(data.status);
-  }
-  
-  if (updates.length === 0) {
-    return existing; // Nothing to update
-  }
-  
-  updates.push('processed_at = datetime(\'now\')');
-  values.push(feedHash, episodeGuid);
-  
-  await new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE episodes SET ${updates.join(', ')} WHERE feed_hash = ? AND episode_guid = ?`,
-      values,
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
+  await db('episodes')
+    .where({ feed_hash: feedHash, episode_guid: episodeGuid })
+    .update(updates);
   
   return getEpisode(feedHash, episodeGuid);
 };
@@ -248,16 +165,9 @@ export const createOrUpdateEpisode = async (feedHash, episodeGuid, data) => {
  * @returns {Promise<boolean>} - True if deleted, false if not found
  */
 export const deleteEpisode = async (feedHash, episodeGuid) => {
-  const result = await new Promise((resolve, reject) => {
-    db.run(
-      'DELETE FROM episodes WHERE feed_hash = ? AND episode_guid = ?',
-      [feedHash, episodeGuid],
-      function(err) {
-        if (err) reject(err);
-        else resolve(this.changes);
-      }
-    );
-  });
+  const result = await db('episodes')
+    .where({ feed_hash: feedHash, episode_guid: episodeGuid })
+    .delete();
   
   return result > 0;
 };
@@ -268,16 +178,9 @@ export const deleteEpisode = async (feedHash, episodeGuid) => {
  * @returns {Promise<number>} - Number of deleted episodes
  */
 export const deleteEpisodesByFeed = async (feedHash) => {
-  const result = await new Promise((resolve, reject) => {
-    db.run(
-      'DELETE FROM episodes WHERE feed_hash = ?',
-      [feedHash],
-      function(err) {
-        if (err) reject(err);
-        else resolve(this.changes);
-      }
-    );
-  });
+  const result = await db('episodes')
+    .where({ feed_hash: feedHash })
+    .delete();
   
   return result;
 };
@@ -289,18 +192,10 @@ export const deleteEpisodesByFeed = async (feedHash) => {
 export const deleteOldEpisodes = async () => {
   const cleanupDays = parseInt(process.env.STORAGE_CLEANUP_DAYS || '30', 10);
   
-  const result = await new Promise((resolve, reject) => {
-    db.run(
-      `DELETE FROM episodes 
-       WHERE processed_at < datetime('now', '-' || ? || ' days')
-       AND status = 'processed'`,
-      [cleanupDays],
-      function(err) {
-        if (err) reject(err);
-        else resolve(this.changes);
-      }
-    );
-  });
+  const result = await db('episodes')
+    .where('processed_at', '<', db.raw(`datetime('now', '-${cleanupDays} days')`))
+    .where('status', 'processed')
+    .delete();
   
   console.log(`Deleted ${result} episodes older than ${cleanupDays} days`);
   return result;

@@ -73,7 +73,7 @@ rss-sponsorblock/
 
 ### Storage Service (`src/services/storageService.js`)
 
-- Manages SQLite database for episode tracking
+- Uses Knex.js query builder with SQLite database
 - Handles file storage organization
 - Tracks processing status and metadata
 - Manages audio file paths and retrieval
@@ -121,6 +121,11 @@ rss-sponsorblock/
 ### Data Storage
 
 - **SQLite Database**: Tracks episode metadata, processing status, and file paths
+  - Uses Knex.js for query building and migrations
+  - Migration commands:
+    - `npm run migrate` - Run pending migrations
+    - `npm run migrate:rollback` - Rollback last migration
+    - `npm run migrate:make <name>` - Create new migration
 - **File Storage**: Organized by feed ID with original and processed versions
 - **Temp Directory**: Used for intermediate processing files
 
@@ -192,6 +197,7 @@ node -e '(async () => { const mod = await import("./src/services/geminiService.j
 ## Current Status
 
 - ✅ SQLite database implemented for episode tracking
+- ✅ Migrated to Knex.js for better database management
 - ✅ Audio downsampling for 77% faster processing
 - ✅ Comprehensive test coverage
 - ✅ Security tests for input validation
