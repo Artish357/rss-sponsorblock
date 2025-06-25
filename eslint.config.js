@@ -5,8 +5,10 @@ import globals from 'globals';
 
 export default [
   {
+    ignores: ['node_modules/**', 'dist/**', 'storage/**', 'temp/**']
+  },
+  {
     files: ['**/*.js', '**/*.ts'],
-    ignores: ['node_modules/**', 'dist/**', 'storage/**', 'temp/**'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -22,14 +24,6 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       
-      // TypeScript-specific rules
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_'
-      }],
-      
       // Essential code quality rules
       'no-console': 'off', // We're a Node.js app, console is fine
       'prefer-const': 'error',
@@ -37,14 +31,33 @@ export default [
       'eqeqeq': ['error', 'always'],
       'no-duplicate-imports': 'error',
       
-      // Basic formatting (let Prettier handle the rest)
+      // Basic formatting
       'quotes': ['error', 'single', { avoidEscape: true }],
       'semi': ['error', 'always']
     }
   },
   {
-    files: ['**/*.ts'],
+    files: ['**/*.js'],
     rules: {
+      'no-unused-vars': ['error', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }]
+    }
+  },
+  {
+    files: ['**/*.ts'],
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'warn'
     }
