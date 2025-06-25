@@ -77,6 +77,11 @@ rss-sponsorblock/
 - Handles file storage organization
 - Tracks processing status and metadata
 - Manages audio file paths and retrieval
+- Full CRUD operations:
+  - Create: `createEpisode()` (fails if exists), `createOrUpdateEpisode()` (upsert)
+  - Read: `getEpisode()` (single), `getEpisodesByFeed()` (by feed)
+  - Update: `updateEpisode()` (fails if not exists)
+  - Delete: `deleteEpisode()`, `deleteEpisodesByFeed()`, `deleteOldEpisodes()` (uses STORAGE_CLEANUP_DAYS)
 
 ### Audio Download Service (`src/services/audioDownloadService.js`)
 
@@ -190,6 +195,8 @@ node -e '(async () => { const mod = await import("./src/services/geminiService.j
 - ✅ Audio downsampling for 77% faster processing
 - ✅ Comprehensive test coverage
 - ✅ Security tests for input validation
+- ✅ Full CRUD operations in storage service
+- ✅ Replaced inline imports with top-level imports for better performance
 
 ## Future Improvements
 
@@ -197,4 +204,4 @@ node -e '(async () => { const mod = await import("./src/services/geminiService.j
 - Support for video podcasts
 - Multiple AI provider support
 - Distributed processing for scale
-- Automatic cleanup of old processed files
+- Automatic cleanup scheduler using `deleteOldEpisodes()`

@@ -2,7 +2,7 @@
 import { downloadAudio, getExistingAudioPath } from './audioDownloadService.js';
 import { detectAllAdBreaks } from './geminiService.js';
 import { removeAds } from './audioProcessor.js';
-import { getEpisode, saveEpisode, updateEpisodeStatus } from './storageService.js';
+import { getEpisode, createOrUpdateEpisode } from './storageService.js';
 import path from 'path';
 import { mkdirSync } from 'fs';
 
@@ -25,7 +25,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     }
 
     // Update status to downloading
-    await updateEpisodeStatus(feedHash, episodeGuid, 'downloading');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'downloading' });
 
     // Step 1: Download audio if not already downloaded
     let audioPath = getExistingAudioPath(feedHash, episodeGuid);
@@ -37,7 +37,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     }
 
     // Update status to analyzing
-    await updateEpisodeStatus(feedHash, episodeGuid, 'analyzing');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'analyzing' });
 
     // Step 2: Detect ad breaks using iterative chunking approach
     console.log('Detecting ad breaks...');
@@ -47,7 +47,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
 
     // If no ads found, just mark as processed with original file
     if (adBreaks.length === 0) {
-      await saveEpisode(feedHash, episodeGuid, {
+      await createOrUpdateEpisode(feedHash, episodeGuid, {
         original_url: originalUrl,
         file_path: audioPath,
         ad_segments: [],
@@ -57,7 +57,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     }
 
     // Update status to processing
-    await updateEpisodeStatus(feedHash, episodeGuid, 'processing');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'processing' });
 
     // Step 3: Remove ads using FFmpeg
     console.log('Removing advertisements...');
@@ -77,7 +77,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     await removeAds(audioPath, outputPath, adSegments);
 
     // Step 4: Save results
-    await saveEpisode(feedHash, episodeGuid, {
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: originalUrl,
       file_path: outputPath,
       ad_segments: adBreaks,
@@ -91,7 +91,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     console.error(`Error processing episode ${episodeGuid}:`, error);
     
     // Update status to error
-    await updateEpisodeStatus(feedHash, episodeGuid, 'error');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'error' });
     
     throw error;
   }

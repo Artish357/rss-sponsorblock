@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { initDatabase, saveEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
+import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
 
@@ -26,7 +26,7 @@ describe('Storage Service', () => {
     assert.ok(true);
   });
 
-  test('saveEpisode and getEpisode - stores and retrieves episode data', async () => {
+  test('createOrUpdateEpisode and getEpisode - stores and retrieves episode data', async () => {
     
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
@@ -36,7 +36,7 @@ describe('Storage Service', () => {
     };
 
     // Save episode
-    const saved = await saveEpisode(feedHash, episodeGuid, testData);
+    const saved = await createOrUpdateEpisode(feedHash, episodeGuid, testData);
     assert.strictEqual(saved.original_url, testData.original_url);
     assert.strictEqual(saved.feed_hash, feedHash);
     assert.strictEqual(saved.episode_guid, episodeGuid);
@@ -53,17 +53,17 @@ describe('Storage Service', () => {
     assert.strictEqual(result, null);
   });
 
-  test('saveEpisode - overwrites existing episode data', async () => {
+  test('createOrUpdateEpisode - overwrites existing episode data', async () => {
     const feedHash = 'test-feed-2';
     const episodeGuid = 'test-episode-2';
     
     // Save initial data
-    await saveEpisode(feedHash, episodeGuid, {
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/first.mp3'
     });
     
     // Overwrite with new data
-    await saveEpisode(feedHash, episodeGuid, {
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/updated.mp3',
       file_path: '/path/to/processed.mp3'
     });
@@ -73,7 +73,7 @@ describe('Storage Service', () => {
     assert.strictEqual(result.file_path, '/path/to/processed.mp3');
   });
 
-  test('saveEpisode and getEpisode - handles ad segments JSON', async () => {
+  test('createOrUpdateEpisode and getEpisode - handles ad segments JSON', async () => {
     
     const feedHash = 'test-feed-3';
     const episodeGuid = 'test-episode-3';
@@ -83,7 +83,7 @@ describe('Storage Service', () => {
     ];
     
     // Save episode with ad segments
-    await saveEpisode(feedHash, episodeGuid, {
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/audio.mp3',
       file_path: '/path/to/processed.mp3',
       ad_segments: adSegments

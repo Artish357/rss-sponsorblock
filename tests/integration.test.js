@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { fetchFeed, replaceAudioUrls } from '../src/services/rssService.js';
-import { initDatabase, saveEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
+import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
 import { processEpisode } from '../src/services/audioProcessingService.js';
 import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService.js';
 import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor.js';
@@ -32,7 +32,7 @@ describe('Integration Tests - API Contracts', () => {
       data: { original_url: 'https://example.com/test.mp3' }
     };
     
-    await saveEpisode(testData.feedHash, testData.episodeGuid, testData.data);
+    await createOrUpdateEpisode(testData.feedHash, testData.episodeGuid, testData.data);
     const retrieved = await getEpisode(testData.feedHash, testData.episodeGuid);
     
     assert.ok(retrieved);
@@ -54,7 +54,7 @@ describe('Integration Tests - API Contracts', () => {
     await initDatabase(true);
     
     // Pre-save a processed episode to test caching
-    await saveEpisode('test-feed', 'test-episode', {
+    await createOrUpdateEpisode('test-feed', 'test-episode', {
       status: 'processed',
       file_path: '/test/path.mp3',
       ad_segments: []

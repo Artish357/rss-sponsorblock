@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { initDatabase, saveEpisode, getEpisode } from './services/storageService.js';
+import { initDatabase, createOrUpdateEpisode, getEpisode } from './services/storageService.js';
 import { fetchFeed, replaceAudioUrls } from './services/rssService.js';
 import { processEpisodesSequentially, processEpisode } from './services/audioProcessingService.js';
 
@@ -27,7 +27,7 @@ app.get('/feed', async (req, res) => {
     
     // Store episode metadata with original URLs (secure internal storage)
     for (const episode of feed.episodes) {
-      await saveEpisode(feed.feedHash, episode.guid, {
+      await createOrUpdateEpisode(feed.feedHash, episode.guid, {
         original_url: episode.audioUrl
       });
     }

@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { initDatabase, closeDatabase, saveEpisode, getEpisode, updateEpisodeStatus } from '../src/services/storageService.js';
+import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService.js';
 import { processEpisode, processEpisodesSequentially } from '../src/services/audioProcessingService.js';
 
 const execAsync = promisify(exec);
@@ -42,7 +42,7 @@ describe('Audio Processing Service - Integration Tests', () => {
     const originalUrl = 'https://example.com/audio.mp3';
     
     // Pre-save processed episode
-    await saveEpisode(feedHash, episodeGuid, {
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
       status: 'processed',
       file_path: '/path/to/processed.mp3',
       ad_segments: []
@@ -93,7 +93,7 @@ describe('Audio Processing Service - Integration Tests', () => {
     
     // Pre-save as processed
     for (const ep of episodes) {
-      await saveEpisode(ep.feedHash, ep.episodeGuid, {
+      await createOrUpdateEpisode(ep.feedHash, ep.episodeGuid, {
         status: 'processed',
         file_path: `/processed/${ep.episodeGuid}.mp3`,
         ad_segments: []
@@ -106,22 +106,22 @@ describe('Audio Processing Service - Integration Tests', () => {
     assert.strictEqual(results.filter(r => r.success).length, 2);
   });
 
-  test('updateEpisodeStatus - tracks status changes', async () => {
+  test('createOrUpdateEpisode - tracks status changes', async () => {
     const feedHash = 'test-feed';
     const episodeGuid = 'status-test';
     
     // Create episode
-    await updateEpisodeStatus(feedHash, episodeGuid, 'downloading');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'downloading' });
     let episode = await getEpisode(feedHash, episodeGuid);
     assert.strictEqual(episode.status, 'downloading');
     
     // Update status
-    await updateEpisodeStatus(feedHash, episodeGuid, 'analyzing');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'analyzing' });
     episode = await getEpisode(feedHash, episodeGuid);
     assert.strictEqual(episode.status, 'analyzing');
     
     // Update to processed
-    await updateEpisodeStatus(feedHash, episodeGuid, 'processed');
+    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'processed' });
     episode = await getEpisode(feedHash, episodeGuid);
     assert.strictEqual(episode.status, 'processed');
   });
