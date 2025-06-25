@@ -25,12 +25,12 @@ export const downloadAudio = async (url, feedHash, episodeGuid) => {
   try {
     // Download audio with timeout
     const timeout = parseInt(process.env.DOWNLOAD_TIMEOUT || '300000', 10); // 5 minutes default
-    
+
     const response = await axios({
       method: 'GET',
-      url: url,
+      url,
       responseType: 'stream',
-      timeout: timeout,
+      timeout,
       headers: {
         'User-Agent': 'RSS-SponsorBlock/1.0'
       }

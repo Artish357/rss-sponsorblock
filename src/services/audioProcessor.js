@@ -11,7 +11,7 @@ import os from 'os';
  */
 export const timeToSeconds = (timeStr) => {
   const parts = timeStr.split(':').map(p => parseFloat(p));
-  
+
   if (parts.length === 1) {
     // SS format
     return parts[0];
@@ -35,7 +35,7 @@ export const secondsToTime = (seconds) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (hours > 0) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   } else {
@@ -48,14 +48,15 @@ export const secondsToTime = (seconds) => {
  * @param {string} inputPath - Path to audio file
  * @returns {Promise<number>} - Duration in seconds
  */
-export const getAudioDuration = async (inputPath) => {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(inputPath, (err, metadata) => {
-      if (err) reject(err);
-      else resolve(metadata.format.duration);
-    });
+export const getAudioDuration = async (inputPath) => new Promise((resolve, reject) => {
+  ffmpeg.ffprobe(inputPath, (err, metadata) => {
+    if (err) {
+      reject(err);
+    } else {
+      resolve(metadata.format.duration);
+    }
   });
-};
+});
 
 /**
  * Extract a chunk of audio from a larger file
@@ -69,13 +70,13 @@ export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds
   const tempDir = path.join(os.tmpdir(), 'rss-sponsorblock');
   mkdirSync(tempDir, { recursive: true });
   const tempPath = path.join(tempDir, `chunk_${Date.now()}_${startSeconds}.mp3`);
-  
+
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath)
       .setStartTime(startSeconds)
       .setDuration(durationSeconds)
       .output(tempPath);
-    
+
     if (forAnalysis) {
       // Downsample to 16kbps mono for Gemini analysis
       command
@@ -87,9 +88,9 @@ export const extractAudioChunk = async (inputPath, startSeconds, durationSeconds
       // Fast copy without re-encoding for final processing
       command.audioCodec('copy');
     }
-    
+
     command
-      .on('start', (cmd) => {
+      .on('start', (_cmd) => {
         console.log(`Extracting chunk: ${startSeconds}s for ${durationSeconds}s${forAnalysis ? ' (downsampled)' : ''}`);
       })
       .on('end', () => {
@@ -182,7 +183,7 @@ export const removeAds = async (inputPath, outputPath, adSegments) => {
 
     if (keepSegments.length > 0) {
       filters.push(`${inputs.join('')}concat=n=${keepSegments.length}:v=0:a=1[out]`);
-      
+
       command
         .complexFilter(filters.join(';'))
         .map('[out]')

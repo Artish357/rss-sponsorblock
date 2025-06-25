@@ -7,10 +7,10 @@ export async function up(knex) {
     table.text('ad_segments'); // JSON
     table.text('status').defaultTo('pending');
     table.timestamp('processed_at').defaultTo(knex.fn.now());
-    
+
     // Composite primary key
     table.primary(['feed_hash', 'episode_guid']);
-    
+
     // Add indexes for performance
     table.index('feed_hash');
     table.index('status');

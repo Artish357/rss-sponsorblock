@@ -15,7 +15,7 @@ import { mkdirSync } from 'fs';
  */
 export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
   console.log(`Starting processing for episode: ${episodeGuid}`);
-  
+
   try {
     // Check if already processed
     const existing = await getEpisode(feedHash, episodeGuid);
@@ -63,9 +63,9 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
     console.log('Removing advertisements...');
     const processedDir = path.join(process.env.STORAGE_AUDIO_DIR || './storage/audio', feedHash, 'processed');
     mkdirSync(processedDir, { recursive: true });
-    
+
     const outputPath = path.join(processedDir, `${episodeGuid}.mp3`);
-    
+
     // Convert ad breaks to format expected by removeAds (with HH:MM:SS timestamps)
     const adSegments = adBreaks.map(breakInfo => ({
       start: breakInfo.start_formatted,
@@ -73,7 +73,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
       confidence: breakInfo.confidence,
       description: breakInfo.description
     }));
-    
+
     await removeAds(audioPath, outputPath, adSegments);
 
     // Step 4: Save results
@@ -89,10 +89,10 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
 
   } catch (error) {
     console.error(`Error processing episode ${episodeGuid}:`, error);
-    
+
     // Update status to error
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'error' });
-    
+
     throw error;
   }
 };
@@ -104,7 +104,7 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
  */
 export const processEpisodesSequentially = async (episodes) => {
   const results = [];
-  
+
   for (const episode of episodes) {
     try {
       const result = await processEpisode(
@@ -114,13 +114,13 @@ export const processEpisodesSequentially = async (episodes) => {
       );
       results.push({ success: true, episode: result });
     } catch (error) {
-      results.push({ 
-        success: false, 
-        episode: episode,
-        error: error.message 
+      results.push({
+        success: false,
+        episode,
+        error: error.message
       });
     }
   }
-  
+
   return results;
 };

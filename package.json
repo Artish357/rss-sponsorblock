@@ -9,9 +9,12 @@
     "dev": "node --watch src/index.js",
     "test": "node --test tests/*.test.js",
     "test:watch": "node --test --watch tests/*.test.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "migrate:make": "knex migrate:make"
+    "migrate:make": "knex migrate:make",
+    "prepare": "husky"
   },
   "dependencies": {
     "@google/generative-ai": "^0.19.0",
@@ -26,5 +29,14 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "eslint": "^9.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "globals": "^16.2.0",
+    "husky": "^9.1.7"
   }
 }

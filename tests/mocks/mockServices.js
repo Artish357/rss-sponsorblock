@@ -17,7 +17,7 @@ export const createTestDownloadService = () => ({
     );
     return filePath;
   },
-  
+
   getExistingAudioPath: (feedHash, episodeGuid) => {
     const filePath = path.join(
       process.env.STORAGE_AUDIO_DIR || './storage/audio',
@@ -31,11 +31,11 @@ export const createTestDownloadService = () => ({
 
 // Mock Gemini service for testing
 export const createTestGeminiService = () => ({
-  detectAllAdBreaks: async (audioPath) => {
+  detectAllAdBreaks: async (_audioPath) => {
     if (process.env.MOCK_GEMINI === 'fail') {
       throw new Error('Gemini API error: Mock failure');
     }
-    
+
     if (process.env.MOCK_GEMINI === 'with-ads') {
       return [{
         start: 120,
@@ -46,15 +46,15 @@ export const createTestGeminiService = () => ({
         description: 'Mock ad break'
       }];
     }
-    
+
     return []; // no-ads
   },
-  
-  detectFirstAdBreak: async (chunkPath) => {
+
+  detectFirstAdBreak: async (_chunkPath) => {
     if (process.env.MOCK_GEMINI === 'with-ads') {
       return {
-        start: "00:02:00",
-        end: "00:03:00",
+        start: '00:02:00',
+        end: '00:03:00',
         confidence: 0.95,
         description: 'Mock ad break'
       };
@@ -65,24 +65,22 @@ export const createTestGeminiService = () => ({
 
 // Mock audio processor for testing
 export const createTestAudioProcessor = () => ({
-  removeAds: async (inputPath, outputPath, adSegments) => {
+  removeAds: async (inputPath, outputPath, _adSegments) =>
     // Just return the output path for tests
-    return outputPath;
-  },
-  
-  getAudioDuration: async (audioPath) => {
-    return 300; // 5 minutes
-  },
-  
-  extractAudioChunk: async (audioPath, start, duration, forAnalysis) => {
-    return `/tmp/mock-chunk-${start}-${duration}.mp3`;
-  },
-  
+    outputPath
+  ,
+
+  getAudioDuration: async (_audioPath) =>
+    300 // 5 minutes
+  ,
+
+  extractAudioChunk: async (_audioPath, start, duration, _forAnalysis) => `/tmp/mock-chunk-${start}-${duration}.mp3`,
+
   timeToSeconds: (time) => {
     const parts = time.split(':').reverse();
     return parseInt(parts[0]) + (parts[1] ? parseInt(parts[1]) * 60 : 0) + (parts[2] ? parseInt(parts[2]) * 3600 : 0);
   },
-  
+
   secondsToTime: (seconds) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);

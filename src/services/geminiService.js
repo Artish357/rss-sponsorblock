@@ -20,11 +20,11 @@ export const detectFirstAdBreak = async (chunkPath) => {
   if (!chunkPath) {
     throw new Error('Failed to detect ad break: chunk path is required');
   }
-  
-  const model = genAI.getGenerativeModel({ 
+
+  const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     generationConfig: {
-      responseMimeType: "application/json",
+      responseMimeType: 'application/json',
       responseSchema: firstAdBreakSchema
     }
   });
@@ -60,31 +60,31 @@ export const detectAllAdBreaks = async (audioPath) => {
   if (!audioPath) {
     throw new Error('Invalid audio path: path is required');
   }
-  
+
   const duration = await getAudioDuration(audioPath);
   const adBreaks = [];
   let currentPosition = 0; // seconds
-  
+
   console.log(`Starting ad break detection for ${duration}s audio`);
-  
+
   while (currentPosition < duration) {
     // Calculate chunk duration (30 minutes or remaining duration)
     const chunkDuration = Math.min(1800, duration - currentPosition);
-    
+
     console.log(`Processing chunk at ${currentPosition}s (${chunkDuration}s duration)`);
-    
+
     // Extract chunk
     const chunkPath = await extractAudioChunk(audioPath, currentPosition, chunkDuration);
-    
+
     try {
       // Detect first ad break in this chunk
       const adBreak = await detectFirstAdBreak(chunkPath);
-      
+
       if (adBreak) {
         // Convert relative timestamps to absolute
         const startSeconds = currentPosition + timeToSeconds(adBreak.start);
         const endSeconds = currentPosition + timeToSeconds(adBreak.end);
-        
+
         const absoluteBreak = {
           start: startSeconds,
           end: endSeconds,
@@ -93,10 +93,10 @@ export const detectAllAdBreaks = async (audioPath) => {
           confidence: adBreak.confidence,
           description: adBreak.description
         };
-        
+
         adBreaks.push(absoluteBreak);
         console.log(`Found ad break: ${absoluteBreak.start}s - ${absoluteBreak.end}s`);
-        
+
         // Jump to 60 seconds after this ad break
         currentPosition = absoluteBreak.end + 60;
       } else {
@@ -109,7 +109,7 @@ export const detectAllAdBreaks = async (audioPath) => {
       await unlink(chunkPath).catch(() => {}); // Ignore errors
     }
   }
-  
+
   console.log(`Ad detection complete. Found ${adBreaks.length} ad breaks`);
   return adBreaks;
 };

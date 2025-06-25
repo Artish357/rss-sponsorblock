@@ -17,27 +17,27 @@ export const fetchFeed = async (url) => {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const xmlData = await response.text();
-    
+
     // 2. Parse XML using xml2js
     const parser = new xml2js.Parser();
     const result = await parser.parseStringPromise(xmlData);
-    
+
     // 3. Generate feed hash for storage organization
     const feedHash = createHash('md5').update(url).digest('hex');
-    
+
     // 4. Extract episode metadata
     const channel = result.rss?.channel?.[0];
     if (!channel) {
       throw new Error('Invalid RSS feed: missing channel');
     }
-    
+
     const items = channel.item || [];
     const episodes = items.map(item => {
       const enclosure = item.enclosure?.[0];
       if (!enclosure?.$ || !enclosure.$.url) {
         return null; // Skip items without audio
       }
-      
+
       return {
         title: item.title?.[0] || '',
         guid: item.guid?.[0]?._ || item.guid?.[0] || '',
@@ -46,7 +46,7 @@ export const fetchFeed = async (url) => {
         pubDate: item.pubDate?.[0] || ''
       };
     }).filter(Boolean); // Remove null entries
-    
+
     return {
       feedHash,
       title: channel.title?.[0] || '',
@@ -65,13 +65,13 @@ export const replaceAudioUrls = async (feed) => {
     const parser = new xml2js.Parser();
     const builder = new xml2js.Builder();
     const parsedXml = await parser.parseStringPromise(feed.originalXml);
-    
+
     // Create a map of original URLs to episode data for faster lookup
     const urlToEpisode = new Map();
     feed.episodes.forEach(episode => {
       urlToEpisode.set(episode.audioUrl, episode);
     });
-    
+
     // Modify audio URLs in the parsed XML structure
     const channel = parsedXml.rss?.channel?.[0];
     if (channel && channel.item) {
@@ -89,7 +89,7 @@ export const replaceAudioUrls = async (feed) => {
         }
       });
     }
-    
+
     // Build the modified XML
     const modifiedXml = builder.buildObject(parsedXml);
     return modifiedXml;

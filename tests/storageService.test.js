@@ -15,19 +15,19 @@ describe('Storage Service', () => {
   afterEach(async () => {
     // Close database connection
     await closeDatabase();
-    
+
     // Clean up test database and migrations
     try {
       const db = knex(knexConfig.test);
       await db.migrate.rollback();
       await db.destroy();
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during cleanup
     }
-    
+
     try {
       unlinkSync(join('./storage', 'test.db'));
-    } catch (error) {
+    } catch (_error) {
       // File doesn't exist, that's fine
     }
   });
@@ -38,7 +38,7 @@ describe('Storage Service', () => {
   });
 
   test('createOrUpdateEpisode and getEpisode - stores and retrieves episode data', async () => {
-    
+
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
     const testData = {
@@ -67,39 +67,39 @@ describe('Storage Service', () => {
   test('createOrUpdateEpisode - overwrites existing episode data', async () => {
     const feedHash = 'test-feed-2';
     const episodeGuid = 'test-episode-2';
-    
+
     // Save initial data
     await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/first.mp3'
     });
-    
+
     // Overwrite with new data
     await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/updated.mp3',
       file_path: '/path/to/processed.mp3'
     });
-    
+
     const result = await getEpisode(feedHash, episodeGuid);
     assert.strictEqual(result.original_url, 'https://example.com/updated.mp3');
     assert.strictEqual(result.file_path, '/path/to/processed.mp3');
   });
 
   test('createOrUpdateEpisode and getEpisode - handles ad segments JSON', async () => {
-    
+
     const feedHash = 'test-feed-3';
     const episodeGuid = 'test-episode-3';
     const adSegments = [
       { start: 0, end: 30, type: 'sponsor' },
       { start: 600, end: 660, type: 'ad' }
     ];
-    
+
     // Save episode with ad segments
     await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: 'https://example.com/audio.mp3',
       file_path: '/path/to/processed.mp3',
       ad_segments: adSegments
     });
-    
+
     // Retrieve and verify
     const result = await getEpisode(feedHash, episodeGuid);
     assert.deepStrictEqual(result.ad_segments, adSegments);

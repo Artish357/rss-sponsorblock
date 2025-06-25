@@ -15,7 +15,7 @@ await initDatabase();
 // RSS proxy route
 app.get('/feed', async (req, res) => {
   const { url } = req.query;
-  
+
   if (!url) {
     return res.status(400).json({ error: 'RSS URL required' });
   }
@@ -24,24 +24,24 @@ app.get('/feed', async (req, res) => {
     // Fetch and parse RSS feed
     const feed = await fetchFeed(url);
     console.log(`Fetched RSS feed: ${feed.title} (${feed.episodes.length} episodes)`);
-    
+
     // Store episode metadata with original URLs (secure internal storage)
     for (const episode of feed.episodes) {
       await createOrUpdateEpisode(feed.feedHash, episode.guid, {
         original_url: episode.audioUrl
       });
     }
-    
+
     // Replace audio URLs with local proxy URLs (no original URLs exposed)
     const modifiedXml = await replaceAudioUrls(feed);
-    
+
     // Queue first 3 episodes for background processing
     const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
       feedHash: feed.feedHash,
       episodeGuid: ep.guid,
       originalUrl: ep.audioUrl
     }));
-    
+
     // Process in background without blocking response
     processEpisodesSequentially(episodesToProcess)
       .then(results => {
@@ -51,7 +51,7 @@ app.get('/feed', async (req, res) => {
       .catch(error => {
         console.error('Pre-processing failed:', error);
       });
-    
+
     res.type('application/rss+xml').send(modifiedXml);
   } catch (error) {
     console.error('Error processing RSS feed:', error);
@@ -67,21 +67,21 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
   const { feedHash, episodeGuid } = req.params;
   const decodedGuid = decodeURIComponent(episodeGuid);
   const lockKey = `${feedHash}:${decodedGuid}`;
-  
+
   try {
     // Look up episode metadata using internal IDs
     const episode = await getEpisode(feedHash, decodedGuid);
-    
+
     if (!episode) {
       return res.status(404).json({ error: 'Episode not found' });
     }
-    
+
     // If already processed, serve the file
     if (episode.status === 'processed' && episode.file_path) {
       console.log(`Serving processed audio: ${episode.file_path}`);
       return res.sendFile(episode.file_path, { root: process.cwd() });
     }
-    
+
     // If processing is in progress, wait for it
     if (processingLocks.has(lockKey)) {
       console.log(`Waiting for processing to complete: ${lockKey}`);
@@ -97,16 +97,16 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
         return res.status(500).json({ error: 'Audio processing failed' });
       }
     }
-    
+
     // Start processing if not already started
     if (episode.status === 'pending' || episode.status === 'error') {
       console.log(`Starting audio processing for: ${decodedGuid}`);
-      
+
       const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
-      
+
       // Store promise in locks map
       processingLocks.set(lockKey, processingPromise);
-      
+
       try {
         const result = await processingPromise;
         return res.sendFile(result.file_path, { root: process.cwd() });
@@ -115,9 +115,9 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res) => {
         processingLocks.delete(lockKey);
       }
     }
-    
+
     // Other statuses (downloading, analyzing, processing)
-    res.status(202).json({ 
+    res.status(202).json({
       status: episode.status,
       message: `Episode is currently ${episode.status}. Please try again later.`
     });

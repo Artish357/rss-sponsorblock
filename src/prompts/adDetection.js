@@ -32,31 +32,31 @@ Or if no ads found:
 
 // Schema for single ad break detection
 export const firstAdBreakSchema = {
-  type: "object",
+  type: 'object',
   properties: {
     ad_break: {
-      type: "object",
+      type: 'object',
       nullable: true,
       properties: {
-        start: { 
-          type: "string",
-          description: "Start time of ad break in HH:MM:SS format"
+        start: {
+          type: 'string',
+          description: 'Start time of ad break in HH:MM:SS format'
         },
-        end: { 
-          type: "string",
-          description: "End time of ad break when content resumes in HH:MM:SS format"
+        end: {
+          type: 'string',
+          description: 'End time of ad break when content resumes in HH:MM:SS format'
         },
-        confidence: { 
-          type: "number",
-          description: "Confidence score between 0.0 and 1.0"
+        confidence: {
+          type: 'number',
+          description: 'Confidence score between 0.0 and 1.0'
         },
-        description: { 
-          type: "string",
-          description: "Brief description of the ad break content"
+        description: {
+          type: 'string',
+          description: 'Brief description of the ad break content'
         }
       },
-      required: ["start", "end", "confidence", "description"]
+      required: ['start', 'end', 'confidence', 'description']
     }
   },
-  required: ["ad_break"]
+  required: ['ad_break']
 };

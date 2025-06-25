@@ -10,7 +10,9 @@ let db = null;
 
 // Export database close function for testing
 export const closeDatabase = async () => {
-  if (!db) return;
+  if (!db) {
+    return;
+  }
   await db.destroy();
   db = null;
 };
@@ -20,11 +22,11 @@ export const initDatabase = async (testMode = false) => {
   if (db) {
     await closeDatabase();
   }
-  
+
   // Select environment based on testMode
   const environment = testMode ? 'test' : (process.env.NODE_ENV || 'development');
   const config = knexConfig[environment];
-  
+
   // Ensure the directory exists for the database file
   const dbDir = dirname(config.connection.filename);
   try {
@@ -35,13 +37,13 @@ export const initDatabase = async (testMode = false) => {
       throw new Error(`Failed to create database directory: ${error.message}`);
     }
   }
-  
+
   // Initialize Knex
   db = knex(config);
-  
+
   // Run migrations
   await db.migrate.latest();
-  
+
   console.log(`Storage service initialized (Knex: ${config.connection.filename})`);
 };
 
@@ -49,14 +51,16 @@ export const getEpisode = async (feedHash, episodeGuid) => {
   const episode = await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .first();
-  
-  if (!episode) return null;
-  
+
+  if (!episode) {
+    return null;
+  }
+
   // Parse ad_segments JSON if present
   if (episode.ad_segments) {
     episode.ad_segments = JSON.parse(episode.ad_segments);
   }
-  
+
   return episode;
 };
 
@@ -69,14 +73,14 @@ export const getEpisodesByFeed = async (feedHash) => {
   const episodes = await db('episodes')
     .where({ feed_hash: feedHash })
     .orderBy('processed_at', 'desc');
-  
+
   // Parse ad_segments JSON for each episode
   episodes.forEach(episode => {
     if (episode.ad_segments) {
       episode.ad_segments = JSON.parse(episode.ad_segments);
     }
   });
-  
+
   return episodes;
 };
 
@@ -94,9 +98,9 @@ export const createEpisode = async (feedHash, episodeGuid, data) => {
   if (existing) {
     throw new Error(`Episode already exists: ${feedHash}/${episodeGuid}`);
   }
-  
+
   const adSegmentsJson = data.ad_segments ? JSON.stringify(data.ad_segments) : null;
-  
+
   await db('episodes').insert({
     feed_hash: feedHash,
     episode_guid: episodeGuid,
@@ -106,7 +110,7 @@ export const createEpisode = async (feedHash, episodeGuid, data) => {
     status: data.status || 'pending',
     processed_at: db.fn.now()
   });
-  
+
   return getEpisode(feedHash, episodeGuid);
 };
 
@@ -124,7 +128,7 @@ export const updateEpisode = async (feedHash, episodeGuid, data) => {
   if (!existing) {
     throw new Error(`Episode not found: ${feedHash}/${episodeGuid}`);
   }
-  
+
   const updates = {
     processed_at: db.fn.now(),
     original_url: data.original_url,
@@ -132,11 +136,11 @@ export const updateEpisode = async (feedHash, episodeGuid, data) => {
     ad_segments: data.ad_segments !== undefined ? JSON.stringify(data.ad_segments) : undefined,
     status: data.status
   };
-  
+
   await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .update(updates);
-  
+
   return getEpisode(feedHash, episodeGuid);
 };
 
@@ -149,14 +153,13 @@ export const updateEpisode = async (feedHash, episodeGuid, data) => {
  */
 export const createOrUpdateEpisode = async (feedHash, episodeGuid, data) => {
   const existing = await getEpisode(feedHash, episodeGuid);
-  
+
   if (existing) {
     return updateEpisode(feedHash, episodeGuid, data);
   } else {
     return createEpisode(feedHash, episodeGuid, data);
   }
 };
-
 
 /**
  * Delete a single episode
@@ -168,7 +171,7 @@ export const deleteEpisode = async (feedHash, episodeGuid) => {
   const result = await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .delete();
-  
+
   return result > 0;
 };
 
@@ -181,7 +184,7 @@ export const deleteEpisodesByFeed = async (feedHash) => {
   const result = await db('episodes')
     .where({ feed_hash: feedHash })
     .delete();
-  
+
   return result;
 };
 
@@ -191,12 +194,12 @@ export const deleteEpisodesByFeed = async (feedHash) => {
  */
 export const deleteOldEpisodes = async () => {
   const cleanupDays = parseInt(process.env.STORAGE_CLEANUP_DAYS || '30', 10);
-  
+
   const result = await db('episodes')
     .where('processed_at', '<', db.raw(`datetime('now', '-${cleanupDays} days')`))
     .where('status', 'processed')
     .delete();
-  
+
   console.log(`Deleted ${result} episodes older than ${cleanupDays} days`);
   return result;
 };

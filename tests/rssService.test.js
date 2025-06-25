@@ -5,14 +5,14 @@ import { fetchFeed, replaceAudioUrls, generateAudioUrl } from '../src/services/r
 describe('RSS Service', () => {
   test('generateAudioUrl - creates secure URL without original URL', () => {
     const url = generateAudioUrl('abc123', 'episode-1');
-    
+
     assert.strictEqual(url, 'http://localhost:3000/audio/abc123/episode-1.mp3');
     assert.ok(!url.includes('?url='), 'URL should not contain query parameter');
   });
 
   test('generateAudioUrl - handles special characters in episode GUID', () => {
     const url = generateAudioUrl('abc123', 'episode with spaces & symbols!');
-    
+
     assert.ok(url.includes('episode%20with%20spaces%20%26%20symbols!'), 'Should URL encode episode GUID');
   });
 
@@ -37,7 +37,7 @@ describe('RSS Service', () => {
     };
 
     const result = await replaceAudioUrls(mockFeed);
-    
+
     assert.ok(result.includes('/audio/test123/ep1.mp3'), 'Should contain local URL');
     assert.ok(!result.includes('example.com/original.mp3'), 'Should not expose original URL');
   });

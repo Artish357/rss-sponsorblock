@@ -2,13 +2,11 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { detectAllAdBreaks, detectFirstAdBreak } from '../src/services/geminiService.js';
 import * as audioProcessor from '../src/services/audioProcessor.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, rmSync } from 'fs';
 
 describe('Gemini Service - Unit Tests', () => {
   const testDir = './test-gemini-service';
-  
+
   beforeEach(() => {
     mkdirSync(testDir, { recursive: true });
   });
@@ -17,7 +15,7 @@ describe('Gemini Service - Unit Tests', () => {
     // Clean up
     try {
       rmSync(testDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Directory doesn't exist
     }
   });
@@ -28,7 +26,7 @@ describe('Gemini Service - Unit Tests', () => {
       detectFirstAdBreak(null),
       /Failed to detect ad break/
     );
-    
+
     // Test with non-existent file
     await assert.rejects(
       detectFirstAdBreak('/non/existent/file.mp3'),
@@ -42,7 +40,7 @@ describe('Gemini Service - Unit Tests', () => {
       detectAllAdBreaks(null),
       /Invalid audio path/
     );
-    
+
     // Test with non-existent file
     await assert.rejects(
       detectAllAdBreaks('/non/existent/audio.mp3'),
@@ -53,12 +51,12 @@ describe('Gemini Service - Unit Tests', () => {
   test('Time conversion functions', () => {
     // Import time conversion utilities
     const { timeToSeconds, secondsToTime } = audioProcessor;
-    
+
     // Test timeToSeconds
     assert.strictEqual(timeToSeconds('45'), 45);
     assert.strictEqual(timeToSeconds('2:30'), 150);
     assert.strictEqual(timeToSeconds('1:30:00'), 5400);
-    
+
     // Test secondsToTime
     assert.strictEqual(secondsToTime(45), '00:45');
     assert.strictEqual(secondsToTime(150), '02:30');
