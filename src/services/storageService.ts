@@ -143,18 +143,13 @@ export const updateEpisode = async (feedHash: string, episodeGuid: string, data:
     throw new Error(`Episode not found: ${feedHash}/${episodeGuid}`);
   }
 
-  const updates: Partial<EpisodeRow> = {
-    processed_at: db.fn.now() as any
-  };
-
-  if (data.original_url !== undefined) updates.original_url = data.original_url;
-  if (data.file_path !== undefined) updates.file_path = data.file_path;
-  if (data.ad_segments !== undefined) updates.ad_segments = JSON.stringify(data.ad_segments);
-  if (data.status !== undefined) updates.status = data.status;
-
   await db('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
-    .update(updates);
+    .update({
+      ...data,
+      processed_at: db.fn.now(),
+      ad_segments: data.ad_segments !== undefined ? JSON.stringify(data.ad_segments) : undefined
+    });
 
   const result = await getEpisode(feedHash, episodeGuid);
   if (!result) {
