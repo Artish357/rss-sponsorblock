@@ -42,7 +42,7 @@ export const processEpisode = async (
     // Step 1: Download audio if not already downloaded
     let audioPath = getExistingAudioPath(feedHash, episodeGuid);
     if (!audioPath) {
-      console.log('Downloading audo...');
+      console.log('Downloading audio...');
       audioPath = await downloadAudio(originalUrl, feedHash, episodeGuid);
     } else {
       console.log('Using existing audio file:', audioPath);
@@ -56,21 +56,6 @@ export const processEpisode = async (
     const adBreaks = await detectAllAdBreaks(audioPath);
 
     console.log(`Found ${adBreaks.length} ad breaks`);
-
-    // If no ads found, just mark as processed with original file
-    if (adBreaks.length === 0) {
-      await createOrUpdateEpisode(feedHash, episodeGuid, {
-        original_url: originalUrl,
-        file_path: audioPath,
-        ad_segments: [],
-        status: 'processed'
-      });
-      const result = await getEpisode(feedHash, episodeGuid);
-      if (!result) {
-        throw new Error('Failed to get episode after updating');
-      }
-      return result;
-    }
 
     // Update status to processing
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'processing' });

@@ -65,13 +65,13 @@ export const detectAllAdBreaks = async (audioPath: string) => {
   const adBreaks = [];
   let currentPosition = 0; // seconds
 
-  console.log(`Starting ad break detection for ${duration}s audio`);
+  console.log(`Starting ad break detection for ${secondsToTime(duration)}s audio`);
 
   while (currentPosition < duration) {
     // Calculate chunk duration (30 minutes or remaining duration)
     const chunkDuration = Math.min(1800, duration - currentPosition);
 
-    console.log(`Processing chunk at ${currentPosition}s (${chunkDuration}s duration)`);
+    console.log(`Processing chunk at ${secondsToTime(currentPosition)}s (${chunkDuration}s duration)`);
 
     // Extract chunk
     const chunkPath = await extractAudioChunk(audioPath, currentPosition, chunkDuration);

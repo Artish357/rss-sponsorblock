@@ -5,16 +5,6 @@ import path from 'path';
 import os from 'os';
 import type { AdSegmentInput } from '../types/index.js';
 
-interface KeepSegment {
-  start: number;
-  end: number;
-}
-
-interface AdSegmentSeconds {
-  start: number;
-  end: number;
-}
-
 /**
  * Convert HH:MM:SS to seconds
  */
@@ -111,37 +101,6 @@ export const extractAudioChunk = async (
 };
 
 /**
- * Build keep segments (inverse of ad segments)
- */
-const buildKeepSegments = (adSegments: AdSegmentInput[], totalDuration: number): KeepSegment[] => {
-  // Convert ad segments to seconds
-  const adsInSeconds: AdSegmentSeconds[] = adSegments.map(seg => ({
-    start: timeToSeconds(seg.start),
-    end: timeToSeconds(seg.end)
-  }));
-
-  // Sort by start time
-  adsInSeconds.sort((a, b) => a.start - b.start);
-
-  const keepSegments: KeepSegment[] = [];
-  let lastEnd = 0;
-
-  for (const ad of adsInSeconds) {
-    if (ad.start > lastEnd) {
-      keepSegments.push({ start: lastEnd, end: ad.start });
-    }
-    lastEnd = Math.max(lastEnd, ad.end);
-  }
-
-  // Add final segment if needed
-  if (lastEnd < totalDuration) {
-    keepSegments.push({ start: lastEnd, end: totalDuration });
-  }
-
-  return keepSegments;
-};
-
-/**
  * Remove ad segments from audio file
  */
 export const removeAds = async (
@@ -149,55 +108,18 @@ export const removeAds = async (
   outputPath: string, 
   adSegments: AdSegmentInput[]
 ): Promise<void> => {
-  // TODO: ffmpeg -i 1fa75b64-9564-41c6-8de6-b305015c9180.mp3 -af "aselect='not(between(t,184,314)+between(t,1608,1865))'" output.mp3
-  if (!adSegments || adSegments.length === 0) {
-    // No ads to remove, just copy the file
-    return new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .audioCodec('copy')
-        .on('end', () => {
-          console.log('No ads to remove, file copied');
-          resolve();
-        })
-        .on('error', (err) => {
-          console.error('FFmpeg error:', err);
-          reject(err);
-        })
-        .save(outputPath);
-    });
-  }
-
-  const duration = await getAudioDuration(inputPath);
-  const keepSegments = buildKeepSegments(adSegments, duration);
-
   console.log(`Removing ${adSegments.length} ad segments`);
-  console.log(`Keeping ${keepSegments.length} segments`);
-
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath);
-
-    // Build filter complex for concatenating segments
-    const filters: string[] = [];
-    const inputs: string[] = [];
-
-    keepSegments.forEach((seg, i) => {
-      filters.push(`[0:a]atrim=${seg.start}:${seg.end},asetpts=PTS-STARTPTS[a${i}]`);
-      inputs.push(`[a${i}]`);
-    });
-
-    if (keepSegments.length > 0) {
-      filters.push(`${inputs.join('')}concat=n=${keepSegments.length}:v=0:a=1[out]`);
-
+      //aselect='not(between(t,184,314)+between(t,1608,1865))
+      const filterSegments = adSegments.map(s => `between(t,${timeToSeconds(s.start)},${timeToSeconds(s.end)})`);
+      if (filterSegments.length) {
+        const filter = `aselect='not(${filterSegments.join('+')})'`;
+        command.complexFilter(filter);
+      }
       command
-        .complexFilter(filters.join(';'))
-        .map('[out]')
-        .audioCodec('libmp3lame')
-        .audioBitrate('128k')
         .on('start', (cmd) => {
           console.log('FFmpeg command:', cmd);
-        })
-        .on('progress', (progress) => {
-          console.log(`Processing: ${progress.percent?.toFixed(1)}%`);
         })
         .on('end', () => {
           console.log('Ad removal complete');
@@ -208,8 +130,6 @@ export const removeAds = async (
           reject(err);
         })
         .save(outputPath);
-    } else {
-      reject(new Error('No segments to keep after ad removal'));
     }
-  });
+  );
 };
