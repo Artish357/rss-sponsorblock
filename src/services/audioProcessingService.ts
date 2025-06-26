@@ -7,17 +7,16 @@ import path from 'path';
 import { mkdirSync } from 'fs';
 import type { Episode } from '../types';
 
-interface ProcessingEpisode {
-  feedHash: string;
-  episodeGuid: string;
-  originalUrl: string;
+type ProcessingResult = {
+  success: false;
+  episode: ProcessingEpisode;
+  error?: string;
+} | {
+  success: true;
+  episode: Episode;
 }
 
-interface ProcessingResult {
-  success: boolean;
-  episode?: Episode | ProcessingEpisode;
-  error?: string;
-}
+type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_url'>
 
 /**
  * Process a single episode through the full pipeline
@@ -43,7 +42,7 @@ export const processEpisode = async (
     // Step 1: Download audio if not already downloaded
     let audioPath = getExistingAudioPath(feedHash, episodeGuid);
     if (!audioPath) {
-      console.log('Downloading audio...');
+      console.log('Downloading audo...');
       audioPath = await downloadAudio(originalUrl, feedHash, episodeGuid);
     } else {
       console.log('Using existing audio file:', audioPath);
@@ -122,9 +121,9 @@ export const processEpisodesSequentially = async (
   for (const episode of episodes) {
     try {
       const result = await processEpisode(
-        episode.feedHash,
-        episode.episodeGuid,
-        episode.originalUrl
+        episode.feed_hash,
+        episode.episode_guid,
+        episode.original_url
       );
       results.push({ success: true, episode: result });
     } catch (error) {

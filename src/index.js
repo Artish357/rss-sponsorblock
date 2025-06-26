@@ -37,9 +37,9 @@ app.get('/feed', async (req, res) => {
 
     // Queue first 3 episodes for background processing
     const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
-      feedHash: feed.feedHash,
-      episodeGuid: ep.guid,
-      originalUrl: ep.audioUrl
+      feed_hash: feed.feedHash,
+      episode_guid: ep.guid,
+      original_url: ep.audioUrl
     }));
 
     // Process in background without blocking response

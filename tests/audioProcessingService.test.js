@@ -87,15 +87,15 @@ describe('Audio Processing Service - Integration Tests', () => {
 
   test('processEpisodesSequentially - handles multiple episodes', async () => {
     const episodes = [
-      { feedHash: 'feed1', episodeGuid: 'ep1', originalUrl: 'url1' },
-      { feedHash: 'feed1', episodeGuid: 'ep2', originalUrl: 'url2' }
+      { feed_hash: 'feed1', episode_guid: 'ep1', original_url: 'url1' },
+      { feed_hash: 'feed1', episode_guid: 'ep2', original_url: 'url2' }
     ];
 
     // Pre-save as processed
     for (const ep of episodes) {
-      await createOrUpdateEpisode(ep.feedHash, ep.episodeGuid, {
+      await createOrUpdateEpisode(ep.feed_hash, ep.episode_guid, {
         status: 'processed',
-        file_path: `/processed/${ep.episodeGuid}.mp3`,
+        file_path: `/processed/${ep.episode_guid}.mp3`,
         ad_segments: []
       });
     }
