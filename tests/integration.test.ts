@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { rmSync } from 'fs';
 import { fetchFeed, replaceAudioUrls } from '../src/services/rssService';
 import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService';
-import { processEpisode } from '../src/services/audioProcessingService';
+import { processEpisode } from '../src/services/episodeProcessingService';
 import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService';
 import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor';
 import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService';
@@ -17,7 +17,7 @@ describe('Integration Tests - API Contracts', () => {
     assert.strictEqual(typeof fetchFeed, 'function');
     assert.strictEqual(typeof replaceAudioUrls, 'function');
     assert.strictEqual(fetchFeed.length, 1); // Takes URL parameter
-    assert.strictEqual(replaceAudioUrls.length, 1); // Takes feed parameter
+    assert.strictEqual(replaceAudioUrls.length, 2); // Takes feed parameter
   });
 
   test('Storage service integration', async () => {

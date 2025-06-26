@@ -5,7 +5,7 @@ import { generateAudioUrl } from '../src/services/rssService';
 describe('Security Tests', () => {
   test('generateAudioUrl - never exposes original URLs', () => {
     const _sensitiveUrl = 'https://secret-internal-server.com/private/audio.mp3?token=secret123';
-    const publicUrl = generateAudioUrl('feed123', 'episode456');
+    const publicUrl = generateAudioUrl('feed123', 'episode456', 'http://localhost');
 
     // Ensure no part of the original URL is in the generated URL
     assert.ok(!publicUrl.includes('secret-internal-server.com'), 'Should not expose original domain');
@@ -18,7 +18,7 @@ describe('Security Tests', () => {
   });
 
   test('URL structure - uses only internal identifiers', () => {
-    const url = generateAudioUrl('abc123', 'ep-001');
+    const url = generateAudioUrl('abc123', 'ep-001', 'http://localhost');
     const urlParts = new URL(url);
 
     // Verify path structure
@@ -33,7 +33,7 @@ describe('Security Tests', () => {
 
   test('Episode GUID encoding - handles potentially malicious input', () => {
     const maliciousGuid = '../../../etc/passwd';
-    const url = generateAudioUrl('feed123', maliciousGuid);
+    const url = generateAudioUrl('feed123', maliciousGuid, 'http://localhost');
 
     // Should be properly URL encoded
     assert.ok(url.includes('..%2F..%2F..%2Fetc%2Fpasswd'), 'Should URL encode path traversal attempts');
@@ -41,8 +41,8 @@ describe('Security Tests', () => {
   });
 
   test('Feed hash isolation - different feeds have different URLs', () => {
-    const url1 = generateAudioUrl('feed1', 'episode1');
-    const url2 = generateAudioUrl('feed2', 'episode1');
+    const url1 = generateAudioUrl('feed1', 'episode1', 'http://localhost');
+    const url2 = generateAudioUrl('feed2', 'episode1', 'http://localhost');
 
     assert.notStrictEqual(url1, url2, 'Different feed hashes should generate different URLs');
     assert.ok(url1.includes('feed1'), 'First URL should contain first feed hash');

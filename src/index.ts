@@ -1,14 +1,15 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { initDatabase, createOrUpdateEpisode, getEpisode } from './services/storageService';
-import { fetchFeed, replaceAudioUrls } from './services/rssService';
-import { processEpisodesSequentially, processEpisode } from './services/audioProcessingService';
+import { fetchFeed, replaceAudioUrls, stripOutSelfLinks } from './services/rssService';
+import { processEpisodesSequentially, processEpisode } from './services/episodeProcessingService';
 import type { Episode } from './types';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.SERVER_PORT || 3000;
+const HOST = process.env.SERVER_HOST || 'localhost';
+const PORT = parseInt(process.env.SERVER_PORT ?? '') || 3000;
 
 // Initialize storage service
 await initDatabase();
@@ -17,8 +18,8 @@ await initDatabase();
 const processingLocks = new Map<string, Promise<Episode>>();
 
 // RSS proxy route
-app.get('/feed', async (req: Request, res: Response): Promise<void> => {
-  const { url } = req.query;
+app.get('/feed/*', async (req: Request, res: Response): Promise<void> => {
+  const url = req.url.replace('/feed/', '');
 
   if (!url || typeof url !== 'string') {
     res.status(400).json({ error: 'RSS URL required' });
@@ -38,7 +39,7 @@ app.get('/feed', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Replace audio URLs with local proxy URLs (no original URLs exposed)
-    const modifiedXml = await replaceAudioUrls(feed);
+    const modifiedXml = await stripOutSelfLinks(await replaceAudioUrls(feed, req.get('host')!));
 
     // Queue first 3 episodes for background processing
     const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
@@ -86,6 +87,19 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: Response)
       return;
     }
 
+    // Start processing if not already started
+    if (!processingLocks.has(lockKey) && (episode.status === 'pending' || episode.status === 'error')) {
+      console.log(`Starting audio processing for: ${decodedGuid}`);
+
+      const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
+
+      // Store promise in locks map
+      processingLocks.set(lockKey, processingPromise);
+      processingPromise.finally(()=>{
+        processingLocks.delete(lockKey);
+      });
+    }
+
     // If processing is in progress, wait for it
     if (processingLocks.has(lockKey)) {
       console.log(`Waiting for processing to complete: ${lockKey}`);
@@ -104,28 +118,7 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: Response)
       }
     }
 
-    // Start processing if not already started
-    if (episode.status === 'pending' || episode.status === 'error') {
-      console.log(`Starting audio processing for: ${decodedGuid}`);
-
-      const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
-
-      // Store promise in locks map
-      processingLocks.set(lockKey, processingPromise);
-
-      try {
-        const result = await processingPromise;
-        if (!result.file_path) {
-          throw new Error('Processing completed but no file path available');
-        }
-        res.sendFile(result.file_path, { root: process.cwd() });
-        return;
-      } finally {
-        // Clean up lock
-        processingLocks.delete(lockKey);
-      }
-    }
-
+    console.log('Other status:', episode);
     // Other statuses (downloading, analyzing, processing)
     res.status(202).json({
       status: episode.status,
@@ -142,7 +135,7 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`RSS SponsorBlock server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`Health check: http://${HOST}:${PORT}/health`);
 });

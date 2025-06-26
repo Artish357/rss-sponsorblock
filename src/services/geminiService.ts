@@ -1,5 +1,5 @@
 // Gemini AI service for ad detection
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GoogleGenerativeAIError } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection';
@@ -49,7 +49,10 @@ export const detectFirstAdBreak = async (chunkPath: string) => {
     return parsed; // Will be null if no break found
   } catch (error) {
     console.error('Error detecting first ad break:', error);
-    throw new Error(`Failed to detect ad break: ${error instanceof Object && 'message' in error && error.message}`);
+    if (error instanceof GoogleGenerativeAIError && (error as any).response?.promptFeedback?.blockReason === 'PROHIBITED_CONTENT') {
+      return null;
+    }
+     throw new Error(`Failed to detect ad break: ${error instanceof Object && 'message' in error && error.message}`);
   }
 };
 

@@ -4,15 +4,15 @@ import { fetchFeed, replaceAudioUrls, generateAudioUrl } from '../src/services/r
 
 describe('RSS Service', () => {
   test('generateAudioUrl - creates secure URL without original URL', () => {
-    const url = generateAudioUrl('abc123', 'episode-1');
+    const url = generateAudioUrl('abc123', 'episode-1', 'http://localhost');
 
-    assert.strictEqual(url, 'http://localhost:3000/audio/abc123/episode-1.mp3');
+    assert.strictEqual(url, 'http://localhost/audio/abc123/episode-1.mp3');
     assert.ok(!url.includes('?url='), 'URL should not contain query parameter');
     assert.ok(!url.includes('original'), 'URL should not contain original URL');
   });
 
   test('generateAudioUrl - handles special characters in episode GUID', () => {
-    const url = generateAudioUrl('feed123', 'episode with spaces & symbols!');
+    const url = generateAudioUrl('feed123', 'episode with spaces & symbols!', 'http://localhost');
     
     assert.ok(url.includes('episode%20with%20spaces%20%26%20symbols!'));
     assert.ok(!url.includes(' '), 'Spaces should be encoded');
@@ -45,14 +45,14 @@ describe('RSS Service', () => {
 </rss>`
     };
 
-    const modifiedXml = await replaceAudioUrls(mockFeed);
+    const modifiedXml = await replaceAudioUrls(mockFeed, 'http://localhost');
     
     // Verify original URLs are not in the output
     assert.ok(!modifiedXml.includes('secret-cdn.com'), 'Original domain should not appear');
     assert.ok(!modifiedXml.includes('original-audio-1.mp3'), 'Original filename should not appear');
     
     // Verify new URLs are present
-    assert.ok(modifiedXml.includes('http://localhost:3000/audio/abc123/ep1.mp3'), 'New URL should be present');
+    assert.ok(modifiedXml.includes('http://localhost/audio/abc123/ep1.mp3'), 'New URL should be present');
   });
 
   test('fetchFeed - handles missing RSS elements gracefully', async () => {

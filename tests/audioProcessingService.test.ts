@@ -5,7 +5,7 @@ import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService';
-import { processEpisode, processEpisodesSequentially } from '../src/services/audioProcessingService';
+import { processEpisode, processEpisodesSequentially } from '../src/services/episodeProcessingService';
 
 const execAsync = promisify(exec);
 

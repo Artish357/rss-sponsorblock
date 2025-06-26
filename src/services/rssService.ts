@@ -3,8 +3,7 @@ import { createHash } from 'crypto';
 import xml2js from 'xml2js';
 import type { RSSFeed, RSSEpisode } from '../types/index.js';
 
-export const generateAudioUrl = (feedHash: string, episodeGuid: string): string => {
-  const baseUrl = process.env.SERVER_BASE_URL || 'http://localhost:3000';
+export const generateAudioUrl = (feedHash: string, episodeGuid: string, baseUrl: string): string => {
   // Clean episode GUID to ensure URL-safe format
   const safeGuid = encodeURIComponent(episodeGuid);
   return `${baseUrl}/audio/${feedHash}/${safeGuid}.mp3`;
@@ -60,7 +59,7 @@ export const fetchFeed = async (url: string): Promise<RSSFeed> => {
   }
 };
 
-export const replaceAudioUrls = async (feed: RSSFeed): Promise<string> => {
+export const replaceAudioUrls = async (feed: RSSFeed, baseUrl: string): Promise<string> => {
   try {
     // Parse the original XML to properly modify it
     const parser = new xml2js.Parser();
@@ -78,12 +77,24 @@ export const replaceAudioUrls = async (feed: RSSFeed): Promise<string> => {
     if (channel && channel.item) {
       channel.item.forEach((item: any) => {
         if (item.enclosure) {
-          item.enclosure.forEach((enclosure: any) => {
+          item.enclosure?.forEach((enclosure: any) => {
             if (enclosure.$ && enclosure.$.url) {
               const originalUrl = enclosure.$.url;
               const episode = urlToEpisode.get(originalUrl);
               if (episode && episode.guid) {
-                enclosure.$.url = generateAudioUrl(feed.feedHash, episode.guid);
+                enclosure.$.url = generateAudioUrl(feed.feedHash, episode.guid, baseUrl);
+              }
+            }
+          });
+          item['media:content']?.forEach((enclosure: any) => {
+            if (enclosure.$ && enclosure.$.url) {
+              const originalUrl = enclosure.$.url;
+              const episode = urlToEpisode.get(originalUrl);
+              if (episode && episode.guid) {
+                enclosure.$.url = generateAudioUrl(feed.feedHash, episode.guid, baseUrl);
+              }
+              if (enclosure['media:player']) {
+                delete enclosure['media:player'];
               }
             }
           });
@@ -98,3 +109,18 @@ export const replaceAudioUrls = async (feed: RSSFeed): Promise<string> => {
     throw new Error(`Failed to replace audio URLs: ${(error as Error).message}`);
   }
 };
+
+export async function stripOutSelfLinks(xml: string) {
+  const parser = new xml2js.Parser();
+  const builder = new xml2js.Builder();
+  const parsedXml = await parser.parseStringPromise(xml);
+  const channel = parsedXml.rss?.channel?.[0];
+  channel['atom:link'] = channel['atom:link'].filter( (x: any) => {
+    if (['self', 'first', 'last'].includes(x.$.rel)) {
+        return false;
+    }
+    return true;
+  });
+  delete channel['itunes:new-feed-url'];
+  return builder.buildObject(parsedXml);
+} 
