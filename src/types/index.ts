@@ -13,7 +13,6 @@ export interface Episode {
 export interface AdSegment {
   start: number;
   end: number;
-  type: 'ad' | 'sponsor' | 'intro' | 'outro' | 'selfpromo' | 'preview' | 'filler' | 'interaction';
 }
 
 export type EpisodeStatus = 'pending' | 'downloading' | 'analyzing' | 'processing' | 'processed' | 'error';

@@ -14,7 +14,7 @@ rss-sponsorblock/
 │   │   └── adDetection.ts              # AI prompts for ad detection (TypeScript)
 │   ├── services/
 │   │   ├── audioDownloadService.ts     # Audio file downloading (TypeScript)
-│   │   ├── audioProcessingService.js   # Audio processing orchestration
+│   │   ├── audioProcessingService.ts   # Audio processing orchestration (TypeScript)
 │   │   ├── audioProcessor.ts           # Audio manipulation utilities (TypeScript)
 │   │   ├── geminiService.ts            # Gemini AI integration (TypeScript)
 │   │   ├── rssService.js               # RSS feed parsing and manipulation
@@ -52,7 +52,7 @@ rss-sponsorblock/
 - Modifies audio URLs to point to local proxy endpoints
 - Triggers background processing for recent episodes
 
-### Audio Processing Service (`src/services/audioProcessingService.js`)
+### Audio Processing Service (`src/services/audioProcessingService.ts`)
 
 - Orchestrates the complete ad removal pipeline
 - Manages download → detect → remove workflow
@@ -206,11 +206,12 @@ node -e '(async () => { const mod = await import("./src/services/geminiService.j
 - ✅ Full CRUD operations in storage service
 - ✅ Replaced inline imports with top-level imports for better performance
 - ✅ ESLint unused variable issues resolved
-- ✅ TypeScript migration in progress (6/8 source files migrated)
+- ✅ TypeScript migration in progress (7/8 source files migrated)
   - ✅ storageService.ts, audioProcessor.ts, audioDownloadService.ts
   - ✅ geminiService.ts, adDetection.ts (manually migrated)
   - ✅ rssService.ts (with @types/xml2js)
-  - ⏳ Remaining: audioProcessingService.js, index.js
+  - ✅ audioProcessingService.ts
+  - ⏳ Remaining: index.js
 
 ## Future Improvements
 

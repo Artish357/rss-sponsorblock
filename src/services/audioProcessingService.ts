@@ -1,19 +1,32 @@
 // Audio processing service - orchestrates the full pipeline
 import { downloadAudio, getExistingAudioPath } from './audioDownloadService';
 import { detectAllAdBreaks } from './geminiService';
-import { removeAds } from './audioProcessor';
+import { removeAds, timeToSeconds } from './audioProcessor';
 import { getEpisode, createOrUpdateEpisode } from './storageService';
 import path from 'path';
 import { mkdirSync } from 'fs';
+import type { Episode } from '../types';
+
+interface ProcessingEpisode {
+  feedHash: string;
+  episodeGuid: string;
+  originalUrl: string;
+}
+
+interface ProcessingResult {
+  success: boolean;
+  episode?: Episode | ProcessingEpisode;
+  error?: string;
+}
 
 /**
  * Process a single episode through the full pipeline
- * @param {string} feedHash - Feed hash
- * @param {string} episodeGuid - Episode GUID
- * @param {string} originalUrl - Original audio URL
- * @returns {Promise<Object>} - Processed episode info
  */
-export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
+export const processEpisode = async (
+  feedHash: string, 
+  episodeGuid: string, 
+  originalUrl: string
+): Promise<Episode> => {
   console.log(`Starting processing for episode: ${episodeGuid}`);
 
   try {
@@ -53,7 +66,11 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
         ad_segments: [],
         status: 'processed'
       });
-      return await getEpisode(feedHash, episodeGuid);
+      const result = await getEpisode(feedHash, episodeGuid);
+      if (!result) {
+        throw new Error('Failed to get episode after updating');
+      }
+      return result;
     }
 
     // Update status to processing
@@ -66,26 +83,23 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
 
     const outputPath = path.join(processedDir, `${episodeGuid}.mp3`);
 
-    // Convert ad breaks to format expected by removeAds (with HH:MM:SS timestamps)
-    const adSegments = adBreaks.map(breakInfo => ({
-      start: breakInfo.start_formatted,
-      end: breakInfo.end_formatted,
-      confidence: breakInfo.confidence,
-      description: breakInfo.description
-    }));
-
-    await removeAds(audioPath, outputPath, adSegments);
+    // Ad breaks are already in the correct format for removeAds
+    await removeAds(audioPath, outputPath, adBreaks);
 
     // Step 4: Save results
     await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: originalUrl,
       file_path: outputPath,
-      ad_segments: adBreaks,
+      ad_segments: adBreaks.map(({ start, end, ...s}) => ({...s, start: timeToSeconds(start), end: timeToSeconds(end)})),
       status: 'processed'
     });
 
     console.log(`Processing complete for episode: ${episodeGuid}`);
-    return await getEpisode(feedHash, episodeGuid);
+    const finalResult = await getEpisode(feedHash, episodeGuid);
+    if (!finalResult) {
+      throw new Error('Failed to get episode after processing');
+    }
+    return finalResult;
 
   } catch (error) {
     console.error(`Error processing episode ${episodeGuid}:`, error);
@@ -99,11 +113,11 @@ export const processEpisode = async (feedHash, episodeGuid, originalUrl) => {
 
 /**
  * Process multiple episodes in sequence
- * @param {Array} episodes - Array of { feedHash, episodeGuid, originalUrl }
- * @returns {Promise<Array>} - Results for each episode
  */
-export const processEpisodesSequentially = async (episodes) => {
-  const results = [];
+export const processEpisodesSequentially = async (
+  episodes: ProcessingEpisode[]
+): Promise<ProcessingResult[]> => {
+  const results: ProcessingResult[] = [];
 
   for (const episode of episodes) {
     try {
@@ -117,7 +131,7 @@ export const processEpisodesSequentially = async (episodes) => {
       results.push({
         success: false,
         episode,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
