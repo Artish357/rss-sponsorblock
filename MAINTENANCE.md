@@ -11,14 +11,16 @@ rss-sponsorblock/
 ├── src/
 │   ├── index.js                        # Main application entry point
 │   ├── prompts/
-│   │   └── adDetection.js              # AI prompts for ad detection
-│   └── services/
-│       ├── audioDownloadService.js     # Audio file downloading
-│       ├── audioProcessingService.js   # Audio processing orchestration
-│       ├── audioProcessor.js           # Audio manipulation utilities
-│       ├── geminiService.js            # Gemini AI integration
-│       ├── rssService.js               # RSS feed parsing and manipulation
-│       └── storageService.js           # Database and file storage management
+│   │   └── adDetection.ts              # AI prompts for ad detection (TypeScript)
+│   ├── services/
+│   │   ├── audioDownloadService.ts     # Audio file downloading (TypeScript)
+│   │   ├── audioProcessingService.js   # Audio processing orchestration
+│   │   ├── audioProcessor.ts           # Audio manipulation utilities (TypeScript)
+│   │   ├── geminiService.ts            # Gemini AI integration (TypeScript)
+│   │   ├── rssService.js               # RSS feed parsing and manipulation
+│   │   └── storageService.ts           # Database and file storage management (TypeScript)
+│   └── types/
+│       └── index.ts                    # Shared TypeScript type definitions
 ├── tests/
 │   ├── *.test.js                       # Test files for each service
 │   ├── README.md                       # Testing documentation
@@ -204,6 +206,10 @@ node -e '(async () => { const mod = await import("./src/services/geminiService.j
 - ✅ Full CRUD operations in storage service
 - ✅ Replaced inline imports with top-level imports for better performance
 - ✅ ESLint unused variable issues resolved
+- ✅ TypeScript migration in progress (5/8 source files migrated)
+  - ✅ storageService.ts, audioProcessor.ts, audioDownloadService.ts
+  - ✅ geminiService.ts, adDetection.ts (manually migrated)
+  - ⏳ Remaining: rssService.js, audioProcessingService.js, index.js
 
 ## Future Improvements
 

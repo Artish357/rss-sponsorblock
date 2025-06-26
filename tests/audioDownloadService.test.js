@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService.ts';
+import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService';
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import http from 'http';

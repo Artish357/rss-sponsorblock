@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService.js';
+import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';

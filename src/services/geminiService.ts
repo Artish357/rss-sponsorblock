@@ -2,8 +2,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection.js';
-import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from './audioProcessor.js';
+import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection';
+import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from './audioProcessor';
 import dotenv from 'dotenv';
 import { AdSegmentInput } from '../types/index.js';
 

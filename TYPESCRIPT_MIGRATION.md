@@ -194,9 +194,11 @@ tests/
 - ✅ Added `AdSegmentInput` interface for audio processing operations
 - ✅ Successfully migrated `audioDownloadService.js` to TypeScript
 - ✅ Added proper Axios response typing and error handling
+- ✅ User manually migrated `geminiService.js` to TypeScript
+- ✅ User manually migrated `adDetection.js` to TypeScript with proper schema typing
 - ✅ Updated all import references across codebase to use TypeScript files
-- ✅ All tests passing for storage, audio processing, and download services
-- Three core services now have complete type safety with proper interfaces
+- ✅ All tests passing for storage, audio processing, download, and Gemini services
+- Five core services and prompts now have complete type safety with proper interfaces
 
 ## Challenges and Solutions
 
@@ -213,11 +215,11 @@ tests/
 
 ### Files Migrated
 - [ ] src/index.js
-- [ ] src/prompts/adDetection.js
+- [x] src/prompts/adDetection.js → adDetection.ts ✅
 - [x] src/services/storageService.js → storageService.ts ✅
 - [x] src/services/audioProcessor.js → audioProcessor.ts ✅
 - [x] src/services/audioDownloadService.js → audioDownloadService.ts ✅
-- [ ] src/services/geminiService.js
+- [x] src/services/geminiService.js → geminiService.ts ✅
 - [ ] src/services/rssService.js
 - [ ] src/services/audioProcessingService.js
 - [ ] tests/mocks/testHelpers.js

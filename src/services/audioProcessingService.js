@@ -1,8 +1,8 @@
 // Audio processing service - orchestrates the full pipeline
-import { downloadAudio, getExistingAudioPath } from './audioDownloadService.js';
-import { detectAllAdBreaks } from './geminiService.js';
-import { removeAds } from './audioProcessor.js';
-import { getEpisode, createOrUpdateEpisode } from './storageService.js';
+import { downloadAudio, getExistingAudioPath } from './audioDownloadService';
+import { detectAllAdBreaks } from './geminiService';
+import { removeAds } from './audioProcessor';
+import { getEpisode, createOrUpdateEpisode } from './storageService';
 import path from 'path';
 import { mkdirSync } from 'fs';
 
