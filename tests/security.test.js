@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { generateAudioUrl } from '../src/services/rssService.js';
+import { generateAudioUrl } from '../src/services/rssService';
 
 describe('Security Tests', () => {
   test('generateAudioUrl - never exposes original URLs', () => {

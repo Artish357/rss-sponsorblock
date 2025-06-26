@@ -23,6 +23,7 @@ export interface RSSFeed {
   description: string;
   feedHash: string;
   episodes: RSSEpisode[];
+  originalXml: string;
 }
 
 export interface RSSEpisode {

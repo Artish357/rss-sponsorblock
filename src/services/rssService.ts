@@ -1,15 +1,16 @@
 // RSS fetching, parsing, and URL replacement service
 import { createHash } from 'crypto';
 import xml2js from 'xml2js';
+import type { RSSFeed, RSSEpisode } from '../types/index.js';
 
-export const generateAudioUrl = (feedHash, episodeGuid) => {
+export const generateAudioUrl = (feedHash: string, episodeGuid: string): string => {
   const baseUrl = process.env.SERVER_BASE_URL || 'http://localhost:3000';
   // Clean episode GUID to ensure URL-safe format
   const safeGuid = encodeURIComponent(episodeGuid);
   return `${baseUrl}/audio/${feedHash}/${safeGuid}.mp3`;
 };
 
-export const fetchFeed = async (url) => {
+export const fetchFeed = async (url: string): Promise<RSSFeed> => {
   try {
     // 1. Fetch RSS XML from external URL
     const response = await fetch(url);
@@ -32,7 +33,7 @@ export const fetchFeed = async (url) => {
     }
 
     const items = channel.item || [];
-    const episodes = items.map(item => {
+    const episodes: RSSEpisode[] = items.map((item: any) => {
       const enclosure = item.enclosure?.[0];
       if (!enclosure?.$ || !enclosure.$.url) {
         return null; // Skip items without audio
@@ -45,7 +46,7 @@ export const fetchFeed = async (url) => {
         description: item.description?.[0] || '',
         pubDate: item.pubDate?.[0] || ''
       };
-    }).filter(Boolean); // Remove null entries
+    }).filter(Boolean) as RSSEpisode[]; // Remove null entries
 
     return {
       feedHash,
@@ -55,11 +56,11 @@ export const fetchFeed = async (url) => {
       originalXml: xmlData
     };
   } catch (error) {
-    throw new Error(`Failed to fetch RSS feed: ${error.message}`);
+    throw new Error(`Failed to fetch RSS feed: ${(error as Error).message}`);
   }
 };
 
-export const replaceAudioUrls = async (feed) => {
+export const replaceAudioUrls = async (feed: RSSFeed): Promise<string> => {
   try {
     // Parse the original XML to properly modify it
     const parser = new xml2js.Parser();
@@ -67,7 +68,7 @@ export const replaceAudioUrls = async (feed) => {
     const parsedXml = await parser.parseStringPromise(feed.originalXml);
 
     // Create a map of original URLs to episode data for faster lookup
-    const urlToEpisode = new Map();
+    const urlToEpisode = new Map<string, RSSEpisode>();
     feed.episodes.forEach(episode => {
       urlToEpisode.set(episode.audioUrl, episode);
     });
@@ -75,9 +76,9 @@ export const replaceAudioUrls = async (feed) => {
     // Modify audio URLs in the parsed XML structure
     const channel = parsedXml.rss?.channel?.[0];
     if (channel && channel.item) {
-      channel.item.forEach(item => {
+      channel.item.forEach((item: any) => {
         if (item.enclosure) {
-          item.enclosure.forEach(enclosure => {
+          item.enclosure.forEach((enclosure: any) => {
             if (enclosure.$ && enclosure.$.url) {
               const originalUrl = enclosure.$.url;
               const episode = urlToEpisode.get(originalUrl);
@@ -94,6 +95,6 @@ export const replaceAudioUrls = async (feed) => {
     const modifiedXml = builder.buildObject(parsedXml);
     return modifiedXml;
   } catch (error) {
-    throw new Error(`Failed to replace audio URLs: ${error.message}`);
+    throw new Error(`Failed to replace audio URLs: ${(error as Error).message}`);
   }
 };

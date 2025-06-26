@@ -220,7 +220,7 @@ tests/
 - [x] src/services/audioProcessor.js → audioProcessor.ts ✅
 - [x] src/services/audioDownloadService.js → audioDownloadService.ts ✅
 - [x] src/services/geminiService.js → geminiService.ts ✅
-- [ ] src/services/rssService.js
+- [x] src/services/rssService.js → rssService.ts ✅
 - [ ] src/services/audioProcessingService.js
 - [ ] tests/mocks/testHelpers.js
 - [ ] tests/mocks/mockServices.js

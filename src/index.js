@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { initDatabase, createOrUpdateEpisode, getEpisode } from './services/storageService';
-import { fetchFeed, replaceAudioUrls } from './services/rssService.js';
+import { fetchFeed, replaceAudioUrls } from './services/rssService';
 import { processEpisodesSequentially, processEpisode } from './services/audioProcessingService';
 
 dotenv.config();

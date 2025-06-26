@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { rmSync } from 'fs';
-import { fetchFeed, replaceAudioUrls } from '../src/services/rssService.js';
+import { fetchFeed, replaceAudioUrls } from '../src/services/rssService';
 import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService';
 import { processEpisode } from '../src/services/audioProcessingService.js';
 import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService';
