@@ -4,13 +4,13 @@ import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService.js';
+import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService';
 import { processEpisode, processEpisodesSequentially } from '../src/services/audioProcessingService';
 
 const execAsync = promisify(exec);
 
 describe('Audio Processing Service - Integration Tests', () => {
-  const testStorageDir = './test-storage-processing';
+  const testStorageDir = './temp/test-storage-processing';
 
   beforeEach(async () => {
     // Set up test storage
@@ -55,34 +55,29 @@ describe('Audio Processing Service - Integration Tests', () => {
   });
 
   test('processEpisode - with real audio file (no ads)', async () => {
-    // Test with real Gemini API
-
     const feedHash = 'test-feed';
     const episodeGuid = 'real-audio-test';
-    const originalUrl = 'https://example.com/audio.mp3';
+    const originalUrl = 'https://example.com/test.mp3';
 
-    // Create a real test audio file with ffmpeg
-    const audioPath = join(testStorageDir, feedHash, 'original', `${episodeGuid}.mp3`);
-    mkdirSync(join(testStorageDir, feedHash, 'original'), { recursive: true });
+    // Create the directory structure
+    const originalDir = join(testStorageDir, feedHash, 'original');
+    mkdirSync(originalDir, { recursive: true });
 
-    // Generate 10 second test audio
-    await execAsync(`ffmpeg -f lavfi -i "sine=frequency=1000:duration=10" -ar 16000 -ac 1 -b:a 16k "${audioPath}" -y`);
+    // Create a real test audio file
+    const audioPath = join(originalDir, `${episodeGuid}.mp3`);
+    await execAsync(`ffmpeg -f lavfi -i "sine=frequency=1000:duration=10" -ar 44100 -ac 2 -b:a 128k "${audioPath}" -y`);
 
-    // Process the episode - it will use existing audio file
-    try {
-      const result = await processEpisode(feedHash, episodeGuid, originalUrl);
+    // Mock that there are no ads
+    process.env.MOCK_GEMINI = 'no-ads';
 
-      // Should process successfully
-      assert.strictEqual(result.status, 'processed');
-      assert.ok(result.file_path);
-      assert.ok(Array.isArray(result.ad_segments));
+    const result = await processEpisode(feedHash, episodeGuid, originalUrl);
 
-      // Since it's a test tone, should not detect any ads
-      assert.strictEqual(result.ad_segments.length, 0);
-    } catch (error) {
-      // If it fails, check the error is reasonable
-      assert.ok(error.message.includes('Gemini') || error.message.includes('Failed to detect'));
-    }
+    assert.strictEqual(result.status, 'processed');
+    assert.ok(result.file_path);
+    assert.strictEqual(result.ad_segments?.length, 0);
+
+    // Clean up
+    delete process.env.MOCK_GEMINI;
   });
 
   test('processEpisodesSequentially - handles multiple episodes', async () => {
@@ -113,16 +108,16 @@ describe('Audio Processing Service - Integration Tests', () => {
     // Create episode
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'downloading' });
     let episode = await getEpisode(feedHash, episodeGuid);
-    assert.strictEqual(episode.status, 'downloading');
+    assert.strictEqual(episode?.status, 'downloading');
 
     // Update status
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'analyzing' });
     episode = await getEpisode(feedHash, episodeGuid);
-    assert.strictEqual(episode.status, 'analyzing');
+    assert.strictEqual(episode?.status, 'analyzing');
 
-    // Update to processed
+    // Final status
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'processed' });
     episode = await getEpisode(feedHash, episodeGuid);
-    assert.strictEqual(episode.status, 'processed');
+    assert.strictEqual(episode?.status, 'processed');
   });
 });

@@ -9,7 +9,7 @@ import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsT
 import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService';
 
 describe('Integration Tests - API Contracts', () => {
-  const testDir = './test-integration';
+  const testDir = './temp/test-integration';
 
   test('RSS service integration', async () => {
     // Test that RSS service modules integrate correctly
@@ -77,7 +77,7 @@ describe('Integration Tests - API Contracts', () => {
     // Test error handling across services
     // Should handle null path
     await assert.rejects(
-      detectAllAdBreaks(null),
+      detectAllAdBreaks(null as any),
       /Invalid audio path/
     );
 

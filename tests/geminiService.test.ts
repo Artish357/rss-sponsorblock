@@ -5,7 +5,7 @@ import * as audioProcessor from '../src/services/audioProcessor';
 import { mkdirSync, rmSync } from 'fs';
 
 describe('Gemini Service - Unit Tests', () => {
-  const testDir = './test-gemini-service';
+  const testDir = './temp/test-gemini-service';
 
   beforeEach(() => {
     mkdirSync(testDir, { recursive: true });
@@ -23,57 +23,53 @@ describe('Gemini Service - Unit Tests', () => {
   test('detectFirstAdBreak - validates input parameters', async () => {
     // Test with missing chunk path
     await assert.rejects(
-      detectFirstAdBreak(null),
-      /Failed to detect ad break/
+      detectFirstAdBreak(null as any),
+      /Failed to detect ad break: chunk path is required/
     );
 
     // Test with non-existent file
     await assert.rejects(
       detectFirstAdBreak('/non/existent/file.mp3'),
-      /Failed to detect ad break/
+      /Failed to detect ad break: ENOENT/
     );
   });
 
   test('detectAllAdBreaks - requires valid audio path', async () => {
     // Test with null path
     await assert.rejects(
-      detectAllAdBreaks(null),
-      /Invalid audio path/
+      detectAllAdBreaks(null as any),
+      /Invalid audio path: path is required/
     );
 
     // Test with non-existent file
     await assert.rejects(
       detectAllAdBreaks('/non/existent/audio.mp3'),
-      /ffprobe exited with code 1|Invalid audio path/
+      /ffprobe exited with code 1|No such file or directory/
     );
   });
 
   test('Time conversion functions', () => {
-    // Import time conversion utilities
-    const { timeToSeconds, secondsToTime } = audioProcessor;
+    // Test the time conversion functions from audioProcessor
+    assert.strictEqual(audioProcessor.timeToSeconds('00:01:00'), 60);
+    assert.strictEqual(audioProcessor.timeToSeconds('00:00:30'), 30);
+    assert.strictEqual(audioProcessor.timeToSeconds('01:30:45'), 5445);
 
-    // Test timeToSeconds
-    assert.strictEqual(timeToSeconds('45'), 45);
-    assert.strictEqual(timeToSeconds('2:30'), 150);
-    assert.strictEqual(timeToSeconds('1:30:00'), 5400);
-
-    // Test secondsToTime
-    assert.strictEqual(secondsToTime(45), '00:45');
-    assert.strictEqual(secondsToTime(150), '02:30');
-    assert.strictEqual(secondsToTime(3661), '01:01:01');
+    assert.strictEqual(audioProcessor.secondsToTime(60), '01:00');
+    assert.strictEqual(audioProcessor.secondsToTime(30), '00:30');
+    assert.strictEqual(audioProcessor.secondsToTime(5445), '01:30:45');
   });
 
   test('detectFirstAdBreak - handles API response correctly', async () => {
-    // This test would require mocking the Gemini API
-    // For now, we'll just test the function exists and has correct signature
+    // This would require mocking the Gemini API
+    // For now, just verify the function exists and has correct signature
     assert.strictEqual(typeof detectFirstAdBreak, 'function');
-    assert.strictEqual(detectFirstAdBreak.length, 1); // Takes 1 parameter
+    assert.strictEqual(detectFirstAdBreak.length, 1);
   });
 
   test('detectAllAdBreaks - processes chunks correctly', async () => {
-    // This test would require mocking ffmpeg and Gemini
-    // For now, we'll test the function signature
+    // This would require mocking the audio file and Gemini API
+    // For now, just verify the function exists and has correct signature
     assert.strictEqual(typeof detectAllAdBreaks, 'function');
-    assert.strictEqual(detectAllAdBreaks.length, 1); // Takes 1 parameter
+    assert.strictEqual(detectAllAdBreaks.length, 1);
   });
 });

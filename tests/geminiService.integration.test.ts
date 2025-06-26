@@ -9,7 +9,7 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 describe('Gemini Service - Integration Tests', () => {
-  const testDir = './test-gemini-integration';
+  const testDir = './temp/test-gemini-integration';
 
   test('Gemini API connectivity test', async () => {
     // Create test directory
@@ -27,7 +27,7 @@ describe('Gemini Service - Integration Tests', () => {
       assert.strictEqual(result, null, 'Should not detect ads in test tone');
 
       console.log('✓ Gemini API is working correctly');
-    } catch (error) {
+    } catch (error: any) {
       // If API key is invalid or other issues
       console.error('Gemini API test failed:', error.message);
 
@@ -51,33 +51,28 @@ describe('Gemini Service - Integration Tests', () => {
   });
 
   test('detectAllAdBreaks with short audio', async () => {
+    // Create test directory
     mkdirSync(testDir, { recursive: true });
 
     try {
-      // Generate 15 second test audio
+      // Generate a short test audio file (15 seconds)
       const testAudioPath = join(testDir, 'test-short.mp3');
-      await execAsync(`ffmpeg -f lavfi -i "sine=frequency=440:duration=15" -ar 16000 -ac 1 -b:a 16k "${testAudioPath}" -y`);
+      await execAsync(`ffmpeg -f lavfi -i "sine=frequency=1000:duration=15" -ar 16000 -ac 1 -b:a 16k "${testAudioPath}" -y`);
 
-      // Process the audio
-      const adBreaks = await detectAllAdBreaks(testAudioPath);
+      // Try to detect all ads
+      const ads = await detectAllAdBreaks(testAudioPath);
 
-      // Should complete without errors
-      assert.ok(Array.isArray(adBreaks));
-      assert.strictEqual(adBreaks.length, 0, 'No ads expected in test tone');
+      // Should be an array (empty for test tone)
+      assert.ok(Array.isArray(ads), 'Should return an array');
+      assert.strictEqual(ads.length, 0, 'Should not detect ads in test tone');
 
       console.log('✓ detectAllAdBreaks works with short audio');
-    } catch (error) {
-      if (error.message.includes('quota') || error.message.includes('API_KEY')) {
-        console.warn('Skipping due to API limitations:', error.message);
-      } else {
-        throw error;
-      }
     } finally {
       // Clean up
       try {
         rmSync(testDir, { recursive: true, force: true });
       } catch (_error) {
-        // Ignore
+        // Ignore cleanup errors
       }
     }
   });

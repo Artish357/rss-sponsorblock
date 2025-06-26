@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService.js';
+import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
 import knex from 'knex';
@@ -54,6 +54,7 @@ describe('Storage Service', () => {
 
     // Retrieve episode
     const retrieved = await getEpisode(feedHash, episodeGuid);
+    assert.ok(retrieved);
     assert.strictEqual(retrieved.original_url, testData.original_url);
     assert.strictEqual(retrieved.feed_hash, feedHash);
     assert.strictEqual(retrieved.episode_guid, episodeGuid);
@@ -80,6 +81,7 @@ describe('Storage Service', () => {
     });
 
     const result = await getEpisode(feedHash, episodeGuid);
+    assert.ok(result);
     assert.strictEqual(result.original_url, 'https://example.com/updated.mp3');
     assert.strictEqual(result.file_path, '/path/to/processed.mp3');
   });
@@ -89,8 +91,8 @@ describe('Storage Service', () => {
     const feedHash = 'test-feed-3';
     const episodeGuid = 'test-episode-3';
     const adSegments = [
-      { start: 0, end: 30, type: 'sponsor' },
-      { start: 600, end: 660, type: 'ad' }
+      { start: 0, end: 30, type: 'sponsor' as const },
+      { start: 600, end: 660, type: 'ad' as const }
     ];
 
     // Save episode with ad segments
@@ -102,6 +104,7 @@ describe('Storage Service', () => {
 
     // Retrieve and verify
     const result = await getEpisode(feedHash, episodeGuid);
+    assert.ok(result);
     assert.deepStrictEqual(result.ad_segments, adSegments);
   });
 });

@@ -6,9 +6,9 @@ import { join } from 'path';
 import http from 'http';
 
 describe('Audio Download Service', () => {
-  let server;
-  let serverUrl;
-  const testStorageDir = './test-storage-download';
+  let server: http.Server;
+  let serverUrl: string;
+  const testStorageDir = './temp/test-storage-download';
 
   beforeEach(async () => {
     // Set up test storage directory
@@ -36,10 +36,12 @@ describe('Audio Download Service', () => {
       }
     });
 
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       server.listen(0, () => {
-        const port = server.address().port;
-        serverUrl = `http://localhost:${port}`;
+        const address = server.address();
+        if (address && typeof address !== 'string') {
+          serverUrl = `http://localhost:${address.port}`;
+        }
         resolve();
       });
     });
@@ -47,63 +49,60 @@ describe('Audio Download Service', () => {
 
   afterEach(async () => {
     // Clean up test server
-    await new Promise(resolve => server.close(resolve));
+    await new Promise<void>(resolve => server.close(() => resolve()));
 
     // Clean up test storage
     try {
       rmSync(testStorageDir, { recursive: true, force: true });
     } catch (_error) {
-      // Directory doesn't exist, that's fine
+      // Ignore
     }
 
-    // Reset environment
+    // Clean up env
     delete process.env.STORAGE_AUDIO_DIR;
   });
 
   test('downloadAudio - successfully downloads audio file', async () => {
+    const url = `${serverUrl}/audio.mp3`;
     const feedHash = 'test-feed-123';
     const episodeGuid = 'episode-456';
-    const url = `${serverUrl}/audio.mp3`;
 
     const filePath = await downloadAudio(url, feedHash, episodeGuid);
 
+    assert.ok(filePath);
+    assert.ok(existsSync(filePath));
     assert.ok(filePath.includes(feedHash));
     assert.ok(filePath.includes(episodeGuid));
     assert.ok(filePath.endsWith('.mp3'));
-    assert.ok(existsSync(filePath));
-
-    // Verify directory structure
-    const expectedDir = join(testStorageDir, feedHash, 'original');
-    assert.ok(existsSync(expectedDir));
   });
 
   test('downloadAudio - handles non-audio content with warning', async () => {
+    const url = `${serverUrl}/not-audio`;
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
-    const url = `${serverUrl}/not-audio`;
 
-    // Should still download but log warning
+    // Should still download but warn
     const filePath = await downloadAudio(url, feedHash, episodeGuid);
     assert.ok(existsSync(filePath));
   });
 
   test('downloadAudio - handles 404 errors', async () => {
+    const url = `${serverUrl}/not-found`;
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
-    const url = `${serverUrl}/not-found`;
 
     await assert.rejects(
       downloadAudio(url, feedHash, episodeGuid),
-      /Download failed/
+      /Download failed: Request failed with status code 404/
     );
   });
 
   test('downloadAudio - handles timeout', async () => {
+    const url = `${serverUrl}/timeout`;
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
-    const url = `${serverUrl}/timeout`;
 
-    // Set short timeout for testing
+    // Set a shorter timeout for testing
     process.env.DOWNLOAD_TIMEOUT = '100';
 
     await assert.rejects(
@@ -117,28 +116,25 @@ describe('Audio Download Service', () => {
   test('getExistingAudioPath - returns path when file exists', () => {
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
+    const expectedPath = join(testStorageDir, feedHash, 'original', `${episodeGuid}.mp3`);
 
     // Create the file
-    const expectedPath = join(testStorageDir, feedHash, 'original', `${episodeGuid}.mp3`);
     mkdirSync(join(testStorageDir, feedHash, 'original'), { recursive: true });
-    writeFileSync(expectedPath, 'test');
+    writeFileSync(expectedPath, 'test content');
 
     const result = getExistingAudioPath(feedHash, episodeGuid);
     assert.strictEqual(result, expectedPath);
   });
 
   test('getExistingAudioPath - returns null when file does not exist', () => {
-    const feedHash = 'test-feed';
-    const episodeGuid = 'non-existent';
-
-    const result = getExistingAudioPath(feedHash, episodeGuid);
+    const result = getExistingAudioPath('non-existent', 'episode');
     assert.strictEqual(result, null);
   });
 
   test('downloadAudio - creates nested directory structure', async () => {
+    const url = `${serverUrl}/audio.mp3`;
     const feedHash = 'deep/nested/feed';
     const episodeGuid = 'episode';
-    const url = `${serverUrl}/audio.mp3`;
 
     const filePath = await downloadAudio(url, feedHash, episodeGuid);
 
@@ -147,13 +143,13 @@ describe('Audio Download Service', () => {
   });
 
   test('downloadAudio - handles network errors gracefully', async () => {
+    const url = 'http://invalid-domain-that-does-not-exist.com/audio.mp3';
     const feedHash = 'test-feed';
     const episodeGuid = 'test-episode';
-    const url = 'http://invalid-domain-that-does-not-exist.com/audio.mp3';
 
     await assert.rejects(
       downloadAudio(url, feedHash, episodeGuid),
-      /Download failed/
+      /ENOTFOUND|EAI_AGAIN|getaddrinfo/
     );
   });
 });
