@@ -149,6 +149,7 @@ export const removeAds = async (
   outputPath: string, 
   adSegments: AdSegmentInput[]
 ): Promise<void> => {
+  // TODO: ffmpeg -i 1fa75b64-9564-41c6-8de6-b305015c9180.mp3 -af "aselect='not(between(t,184,314)+between(t,1608,1865))'" output.mp3
   if (!adSegments || adSegments.length === 0) {
     // No ads to remove, just copy the file
     return new Promise((resolve, reject) => {
