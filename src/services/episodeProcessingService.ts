@@ -1,11 +1,11 @@
 // Audio processing service - orchestrates the full pipeline
 import { downloadAudio, getExistingAudioPath } from './audioDownloadService';
 import { detectAllAdBreaks } from './geminiService';
-import { removeAds, timeToSeconds } from './audioProcessor';
+import { removeAds } from './audioProcessor';
 import { getEpisode, createOrUpdateEpisode } from './storageService';
 import path from 'path';
 import { mkdirSync } from 'fs';
-import type { Episode } from '../types';
+import type { AdSegment, Episode } from '../types';
 
 type ProcessingResult = {
   success: false;
@@ -53,7 +53,7 @@ export const processEpisode = async (
 
     // Step 2: Detect ad breaks using iterative chunking approach
     console.log('Detecting ad breaks...');
-    const adBreaks = await detectAllAdBreaks(audioPath);
+    const adBreaks: AdSegment[] = (await detectAllAdBreaks(audioPath)).filter(Boolean);
 
     console.log(`Found ${adBreaks.length} ad breaks`);
 
@@ -74,7 +74,7 @@ export const processEpisode = async (
     await createOrUpdateEpisode(feedHash, episodeGuid, {
       original_url: originalUrl,
       file_path: outputPath,
-      ad_segments: adBreaks.map(({ start, end, ...s}) => ({...s, start: timeToSeconds(start), end: timeToSeconds(end)})),
+      ad_segments: adBreaks,
       status: 'processed'
     });
 

@@ -5,9 +5,15 @@ import { unlink } from 'fs/promises';
 import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection';
 import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from './audioProcessor';
 import dotenv from 'dotenv';
-import { AdSegmentInput } from '../types/index.js';
+import { AdSegment } from '../types';
 
 dotenv.config();
+
+export interface GeminiAdSegment {
+  start: string;
+  end: string;
+  confidence?: number;
+}
 
 // Initialize Gemini AI
 if (!process.env.GEMINI_API_KEY) {
@@ -18,7 +24,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 /**
  * Detect the first ad break in an audio chunk
  */
-export const detectFirstAdBreak = async (chunkPath: string) => {
+export const detectFirstAdBreak = async (chunkPath: string): Promise<AdSegment | null> => {
   if (!chunkPath) {
     throw new Error('Failed to detect ad break: chunk path is required');
   }
@@ -45,8 +51,8 @@ export const detectFirstAdBreak = async (chunkPath: string) => {
       { text: firstAdBreakPrompt }
     ]);
 
-    const parsed: AdSegmentInput = JSON.parse(result.response.text()).ad_break;
-    return parsed; // Will be null if no break found
+    const parsed: GeminiAdSegment = JSON.parse(result.response.text()).ad_break;
+    return parsed ? { start: timeToSeconds(parsed.start), end: timeToSeconds(parsed.end)} : parsed; // Will be null if no break found
   } catch (error) {
     console.error('Error detecting first ad break:', error);
     if (error instanceof GoogleGenerativeAIError && (error as any).response?.promptFeedback?.blockReason === 'PROHIBITED_CONTENT') {
@@ -59,7 +65,7 @@ export const detectFirstAdBreak = async (chunkPath: string) => {
 /**
  * Detect all ad breaks in an audio file using iterative processing
  */
-export const detectAllAdBreaks = async (audioPath: string) => {
+export const detectAllAdBreaks = async (audioPath: string): Promise<AdSegment[]> => {
   if (!audioPath) {
     throw new Error('Invalid audio path: path is required');
   }
@@ -85,14 +91,14 @@ export const detectAllAdBreaks = async (audioPath: string) => {
 
       if (adBreak) {
         // Convert relative timestamps to absolute
-        adBreak.start = secondsToTime(currentPosition + timeToSeconds(adBreak.start));
-        adBreak.end = secondsToTime(currentPosition + timeToSeconds(adBreak.end));
+        adBreak.start = currentPosition + adBreak.start;
+        adBreak.end =currentPosition + adBreak.end;
 
         adBreaks.push(adBreak);
-        console.log(`Found ad break: ${adBreak.start}s - ${adBreak.end}s`);
+        console.log(`Found ad break: ${secondsToTime(adBreak.start)}s - ${secondsToTime(adBreak.end)}s`);
 
         // Jump to 60 seconds after this ad break
-        currentPosition = timeToSeconds(adBreak.end) + 60;
+        currentPosition = adBreak.end + 60;
       } else {
         console.log('No ad break found in chunk');
         // No ad break found, move to next chunk

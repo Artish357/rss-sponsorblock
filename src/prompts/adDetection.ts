@@ -15,14 +15,14 @@ Important:
 - If multiple sponsors play consecutively, they are part of the SAME ad break
 - The break ends when regular podcast content resumes
 - Return null if no ad break is found in this segment
+- Sometimes the ad break is announced by hosts or is prefaced by an audio bumper. That should help you identify them 
 
 Return format:
 {
   "ad_break": {
-    "start": "HH:MM:SS",
-    "end": "HH:MM:SS",
-    "confidence": 0.0-1.0,
-    "description": "Brief description of the ads and how you identified content resumption"
+    "start": "MM:SS",
+    "end": "MM:SS",
+    "confidence": 0.0-1.0
   }
 }
 
@@ -42,22 +42,18 @@ export const firstAdBreakSchema: ResponseSchema = {
       properties: {
         start: {
           type:  SchemaType.STRING,
-          description: 'Start time of ad break in HH:MM:SS format'
+          description: 'Start time of ad break in MM:SS format'
         },
         end: {
           type:  SchemaType.STRING,
-          description: 'End time of ad break when content resumes in HH:MM:SS format'
+          description: 'End time of ad break when content resumes in MM:SS format'
         },
         confidence: {
           type:  SchemaType.NUMBER,
           description: 'Confidence score between 0.0 and 1.0'
-        },
-        description: {
-          type:  SchemaType.STRING,
-          description: 'Brief description of the ad break content'
         }
       },
-      required: ['start', 'end', 'confidence', 'description']
+      required: ['start', 'end', 'confidence']
     }
   },
   required: ['ad_break']

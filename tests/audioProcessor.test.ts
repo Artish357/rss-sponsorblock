@@ -111,8 +111,8 @@ describe('Audio Processor - Downsampling Feature', () => {
 
     const outputPath = join(testDir, 'no-ads.mp3');
     const adSegments = [
-      { start: '00:00:05', end: '00:00:10', confidence: 0.9 },
-      { start: '00:00:20', end: '00:00:25', confidence: 0.95 }
+      { start: 5, end: 10, confidence: 0.9 },
+      { start: 20, end: 25, confidence: 0.95 }
     ];
 
     await removeAds(longTestPath, outputPath, adSegments);
@@ -141,8 +141,8 @@ describe('Audio Processor - Downsampling Feature', () => {
   test('removeAds - handles overlapping ad segments', async () => {
     const outputPath = join(testDir, 'overlap-test.mp3');
     const adSegments = [
-      { start: '00:00:02', end: '00:00:05', confidence: 0.9 },
-      { start: '00:00:04', end: '00:00:07', confidence: 0.95 } // Overlaps with first
+      { start: 2, end: 5, confidence: 0.9 },
+      { start: 4, end: 7, confidence: 0.95 } // Overlaps with first
     ];
 
     await removeAds(testAudioPath, outputPath, adSegments);

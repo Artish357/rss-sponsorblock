@@ -47,13 +47,6 @@ export interface AudioChunkInfo {
   duration: number;
 }
 
-export interface AdSegmentInput {
-  start: string;
-  end: string;
-  confidence?: number;
-  description?: string;
-}
-
 export interface DatabaseConfig {
   client: string;
   connection: {

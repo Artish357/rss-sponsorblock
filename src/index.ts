@@ -17,52 +17,9 @@ await initDatabase();
 // Processing locks to prevent duplicate processing
 const processingLocks = new Map<string, Promise<Episode>>();
 
-// RSS proxy route
-app.get('/feed/*', async (req: Request, res: Response): Promise<void> => {
-  const url = req.url.replace('/feed/', '');
-
-  if (!url || typeof url !== 'string') {
-    res.status(400).json({ error: 'RSS URL required' });
-    return;
-  }
-
-  try {
-    // Fetch and parse RSS feed
-    const feed = await fetchFeed(url);
-    console.log(`Fetched RSS feed: ${feed.title} (${feed.episodes.length} episodes)`);
-
-    // Store episode metadata with original URLs (secure internal storage)
-    for (const episode of feed.episodes) {
-      await createOrUpdateEpisode(feed.feedHash, episode.guid, {
-        original_url: episode.audioUrl
-      });
-    }
-
-    // Replace audio URLs with local proxy URLs (no original URLs exposed)
-    const modifiedXml = await stripOutSelfLinks(await replaceAudioUrls(feed, req.get('host')!));
-
-    // Queue first 3 episodes for background processing
-    const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
-      feed_hash: feed.feedHash,
-      episode_guid: ep.guid,
-      original_url: ep.audioUrl
-    }));
-
-    // Process in background without blocking response
-    processEpisodesSequentially(episodesToProcess)
-      .then(results => {
-        const successful = results.filter(r => r.success).length;
-        console.log(`Pre-processing complete: ${successful}/${results.length} episodes processed`);
-      })
-      .catch(error => {
-        console.error('Pre-processing failed:', error);
-      });
-
-    res.type('application/rss+xml').send(modifiedXml);
-  } catch (error) {
-    console.error('Error processing RSS feed:', error);
-    res.status(500).json({ error: 'Failed to process RSS feed' });
-  }
+// Health check endpoint
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Secure audio serving route - uses internal IDs only
@@ -130,9 +87,53 @@ app.get('/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: Response)
   }
 });
 
-// Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+
+// RSS proxy route
+app.get('/*', async (req: Request, res: Response): Promise<void> => {
+  const url = req.url.replace('/', '');
+
+  if (!url || typeof url !== 'string') {
+    res.status(400).json({ error: 'RSS URL required' });
+    return;
+  }
+
+  try {
+    // Fetch and parse RSS feed
+    const feed = await fetchFeed(url);
+    console.log(`Fetched RSS feed: ${feed.title} (${feed.episodes.length} episodes)`);
+
+    // Store episode metadata with original URLs (secure internal storage)
+    for (const episode of feed.episodes) {
+      await createOrUpdateEpisode(feed.feedHash, episode.guid, {
+        original_url: episode.audioUrl
+      });
+    }
+
+    // Replace audio URLs with local proxy URLs (no original URLs exposed)
+    const modifiedXml = await stripOutSelfLinks(await replaceAudioUrls(feed, req.get('host')!));
+
+    // Queue first 3 episodes for background processing
+    const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
+      feed_hash: feed.feedHash,
+      episode_guid: ep.guid,
+      original_url: ep.audioUrl
+    }));
+
+    // Process in background without blocking response
+    processEpisodesSequentially(episodesToProcess)
+      .then(results => {
+        const successful = results.filter(r => r.success).length;
+        console.log(`Pre-processing complete: ${successful}/${results.length} episodes processed`);
+      })
+      .catch(error => {
+        console.error('Pre-processing failed:', error);
+      });
+
+    res.type('application/rss+xml').send(modifiedXml);
+  } catch (error) {
+    console.error('Error processing RSS feed:', error);
+    res.status(500).json({ error: 'Failed to process RSS feed' });
+  }
 });
 
 app.listen(PORT, HOST, () => {

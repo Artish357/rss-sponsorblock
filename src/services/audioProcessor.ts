@@ -3,7 +3,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
-import type { AdSegmentInput } from '../types/index.js';
+import type { AdSegment } from '../types/index.js';
 
 /**
  * Convert HH:MM:SS to seconds
@@ -106,13 +106,13 @@ export const extractAudioChunk = async (
 export const removeAds = async (
   inputPath: string, 
   outputPath: string, 
-  adSegments: AdSegmentInput[]
+  adSegments: AdSegment[]
 ): Promise<void> => {
   console.log(`Removing ${adSegments.length} ad segments`);
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath);
       //aselect='not(between(t,184,314)+between(t,1608,1865))
-      const filterSegments = adSegments.map(s => `between(t,${timeToSeconds(s.start)},${timeToSeconds(s.end)})`);
+      const filterSegments = adSegments.map(s => `between(t,${s.start},${s.end})`);
       if (filterSegments.length) {
         const filter = `aselect='not(${filterSegments.join('+')})'`;
         command.complexFilter(filter);
