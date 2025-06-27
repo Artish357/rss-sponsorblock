@@ -8,7 +8,7 @@ import axios, { AxiosError, type AxiosResponse } from 'axios';
  */
 export const downloadAudio = async (url: string, feedHash: string, episodeGuid: string): Promise<string> => {
   // Create directory structure
-  const audioDir = path.join(process.env.STORAGE_AUDIO_DIR || './storage/audio', feedHash, 'original');
+  const audioDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'original');
   mkdirSync(audioDir, { recursive: true });
 
   // Generate file path
@@ -65,7 +65,8 @@ export const downloadAudio = async (url: string, feedHash: string, episodeGuid: 
  */
 export const getExistingAudioPath = (feedHash: string, episodeGuid: string): string | null => {
   const filePath = path.join(
-    process.env.STORAGE_AUDIO_DIR || './storage/audio',
+    process.env.STORAGE_DIR || './storage',
+    'audio',
     feedHash,
     'original',
     `${episodeGuid}.mp3`

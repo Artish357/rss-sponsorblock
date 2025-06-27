@@ -53,7 +53,7 @@ export const processEpisode = async (
 
     // Step 3: Remove ads using FFmpeg
     console.log('Removing advertisements...');
-    const processedDir = path.join(process.env.STORAGE_AUDIO_DIR || './storage/audio', feedHash, 'processed');
+    const processedDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
     mkdirSync(processedDir, { recursive: true });
 
     const outputPath = path.join(processedDir, `${episodeGuid}.mp3`);
