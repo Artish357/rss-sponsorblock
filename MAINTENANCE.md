@@ -37,3 +37,5 @@
 - Replaced STORAGE_AUDIO_DIR environment variable with STORAGE_DIR
 - Updated episode.service.ts and download.service.ts to use path.join(STORAGE_DIR, 'audio')
 - Updated .env file to use STORAGE_DIR instead of STORAGE_AUDIO_DIR
+- Fixed healthcheck to use IPv4 (127.0.0.1) to avoid IPv6 issues
+- Added storage directory creation with proper permissions in Dockerfile

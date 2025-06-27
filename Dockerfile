@@ -10,7 +10,9 @@ RUN apk add --no-cache python3 make g++ && \
 # Production stage
 FROM node:18-alpine
 WORKDIR /app
-RUN apk add --no-cache ffmpeg tini
+RUN apk add --no-cache ffmpeg tini && \
+    mkdir -p /app/storage && \
+    chown -R node:node /app/storage
 COPY --from=builder /app ./
 USER node
 
@@ -23,4 +25,4 @@ CMD ["tini", "--", "node", "dist/src/index.js"]
 
 # Dynamic healthcheck using SERVER_PORT
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:'+(process.env.SERVER_PORT||3000)+'/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"
+    CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.SERVER_PORT||3000)+'/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"
