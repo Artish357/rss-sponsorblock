@@ -30,7 +30,7 @@ export const detectFirstAdBreak = async (chunkPath: string): Promise<AdSegment |
   }
 
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: firstAdBreakSchema
@@ -42,13 +42,13 @@ export const detectFirstAdBreak = async (chunkPath: string): Promise<AdSegment |
     const base64Audio = audioData.toString('base64');
 
     const result = await model.generateContent([
+      { text: firstAdBreakPrompt },
       {
         inlineData: {
           mimeType: 'audio/mpeg',
           data: base64Audio
         }
       },
-      { text: firstAdBreakPrompt }
     ]);
 
     const parsed: GeminiAdSegment = JSON.parse(result.response.text()).ad_break;
@@ -92,7 +92,7 @@ export const detectAllAdBreaks = async (audioPath: string): Promise<AdSegment[]>
       if (adBreak) {
         // Convert relative timestamps to absolute
         adBreak.start = currentPosition + adBreak.start;
-        adBreak.end =currentPosition + adBreak.end;
+        adBreak.end = currentPosition + adBreak.end;
 
         adBreaks.push(adBreak);
         console.log(`Found ad break: ${secondsToTime(adBreak.start)}s - ${secondsToTime(adBreak.end)}s`);

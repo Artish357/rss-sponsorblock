@@ -7,15 +7,6 @@ import path from 'path';
 import { mkdirSync } from 'fs';
 import type { AdSegment, Episode } from '../types';
 
-type ProcessingResult = {
-  success: false;
-  episode: ProcessingEpisode;
-  error?: string;
-} | {
-  success: true;
-  episode: Episode;
-}
-
 type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_url'>
 
 /**
@@ -98,27 +89,22 @@ export const processEpisode = async (
 /**
  * Process multiple episodes in sequence
  */
-export const processEpisodesSequentially = async (
+export const processBacklog = async (
   episodes: ProcessingEpisode[]
-): Promise<ProcessingResult[]> => {
-  const results: ProcessingResult[] = [];
-
-  for (const episode of episodes) {
+) => {
+  const results = await Promise.all(episodes.map(async episode => {
     try {
       const result = await processEpisode(
         episode.feed_hash,
         episode.episode_guid,
         episode.original_url
       );
-      results.push({ success: true, episode: result });
+      return result;
     } catch (error) {
-      results.push({
-        success: false,
-        episode,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Error processing backlog episode', error);
+      return null;
     }
-  }
+  }));
 
   return results;
 };

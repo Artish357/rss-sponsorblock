@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { initDatabase, createOrUpdateEpisode, getEpisode } from './services/storageService';
 import { fetchFeed, replaceAudioUrls, stripOutSelfLinks } from './services/rssService';
-import { processEpisodesSequentially, processEpisode } from './services/episodeProcessingService';
+import { processBacklog as processBacklog, processEpisode } from './services/episodeProcessingService';
 import type { Episode } from './types';
 
 dotenv.config();
@@ -110,7 +110,11 @@ app.get('/*', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Replace audio URLs with local proxy URLs (no original URLs exposed)
-    const modifiedXml = await stripOutSelfLinks(await replaceAudioUrls(feed, req.get('host')!));
+    const host = req.get('host');
+    if (!host) {
+      throw new Error('Host is undefined');
+    }
+    const modifiedXml = await stripOutSelfLinks(await replaceAudioUrls(feed, host));
 
     // Queue first 3 episodes for background processing
     const episodesToProcess = feed.episodes.slice(0, 3).map(ep => ({
@@ -120,14 +124,7 @@ app.get('/*', async (req: Request, res: Response): Promise<void> => {
     }));
 
     // Process in background without blocking response
-    processEpisodesSequentially(episodesToProcess)
-      .then(results => {
-        const successful = results.filter(r => r.success).length;
-        console.log(`Pre-processing complete: ${successful}/${results.length} episodes processed`);
-      })
-      .catch(error => {
-        console.error('Pre-processing failed:', error);
-      });
+    processBacklog(episodesToProcess);
 
     res.type('application/rss+xml').send(modifiedXml);
   } catch (error) {

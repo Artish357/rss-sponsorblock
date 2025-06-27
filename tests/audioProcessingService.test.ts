@@ -5,7 +5,7 @@ import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService';
-import { processEpisode, processEpisodesSequentially } from '../src/services/episodeProcessingService';
+import { processEpisode, processBacklog } from '../src/services/episodeProcessingService';
 
 const execAsync = promisify(exec);
 
@@ -95,10 +95,10 @@ describe('Audio Processing Service - Integration Tests', () => {
       });
     }
 
-    const results = await processEpisodesSequentially(episodes);
+    const results = await processBacklog(episodes);
 
     assert.strictEqual(results.length, 2);
-    assert.strictEqual(results.filter(r => r.success).length, 2);
+    assert.strictEqual(results.filter(Boolean).length, 2);
   });
 
   test('createOrUpdateEpisode - tracks status changes', async () => {

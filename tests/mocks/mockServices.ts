@@ -2,7 +2,7 @@
 
 import { existsSync } from 'fs';
 import path from 'path';
-import type { AdSegmentInput } from '../../src/types';
+import type { AdSegment } from '../../src/types';
 
 interface TestDownloadService {
   downloadAudio: (url: string, feedHash: string, episodeGuid: string) => Promise<string>;
@@ -10,12 +10,12 @@ interface TestDownloadService {
 }
 
 interface TestGeminiService {
-  detectAllAdBreaks: (audioPath: string) => Promise<AdSegmentInput[]>;
-  detectFirstAdBreak: (chunkPath: string) => Promise<AdSegmentInput | null>;
+  detectAllAdBreaks: (audioPath: string) => Promise<AdSegment[]>;
+  detectFirstAdBreak: (chunkPath: string) => Promise<AdSegment | null>;
 }
 
 interface TestAudioProcessor {
-  removeAds: (inputPath: string, outputPath: string, adSegments: AdSegmentInput[]) => Promise<string>;
+  removeAds: (inputPath: string, outputPath: string, adSegments: AdSegment[]) => Promise<string>;
   getAudioDuration: (audioPath: string) => Promise<number>;
   extractAudioChunk: (audioPath: string, start: number, duration: number, forAnalysis?: boolean) => Promise<string>;
   timeToSeconds: (time: string) => number;
@@ -50,30 +50,26 @@ export const createTestDownloadService = (): TestDownloadService => ({
 
 // Mock Gemini service for testing
 export const createTestGeminiService = (): TestGeminiService => ({
-  detectAllAdBreaks: async (_audioPath: string): Promise<AdSegmentInput[]> => {
+  detectAllAdBreaks: async (_audioPath: string): Promise<AdSegment[]> => {
     if (process.env.MOCK_GEMINI === 'fail') {
       throw new Error('Gemini API error: Mock failure');
     }
 
     if (process.env.MOCK_GEMINI === 'with-ads') {
       return [{
-        start: '00:02:00',
-        end: '00:03:00',
-        confidence: 0.95,
-        description: 'Mock ad break'
+        start: 120,
+        end: 180
       }];
     }
 
     return []; // no-ads
   },
 
-  detectFirstAdBreak: async (_chunkPath: string): Promise<AdSegmentInput | null> => {
+  detectFirstAdBreak: async (_chunkPath: string): Promise<AdSegment | null> => {
     if (process.env.MOCK_GEMINI === 'with-ads') {
       return {
-        start: '00:02:00',
-        end: '00:03:00',
-        confidence: 0.95,
-        description: 'Mock ad break'
+        start: 120,
+        end: 180
       };
     }
     return null;
@@ -82,7 +78,7 @@ export const createTestGeminiService = (): TestGeminiService => ({
 
 // Mock audio processor for testing
 export const createTestAudioProcessor = (): TestAudioProcessor => ({
-  removeAds: async (_inputPath: string, outputPath: string, adSegments: AdSegmentInput[]): Promise<string> => {
+  removeAds: async (_inputPath: string, outputPath: string, adSegments: AdSegment[]): Promise<string> => {
     if (adSegments.length === 0) {
       throw new Error('No ad segments provided');
     }
