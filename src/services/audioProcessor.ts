@@ -9,20 +9,8 @@ import type { AdSegment } from '../types/index.js';
  * Convert HH:MM:SS to seconds
  */
 export const timeToSeconds = (timeStr: string): number => {
-  const parts = timeStr.split(':').map(p => parseFloat(p));
-
-  if (parts.length === 1) {
-    // SS format
-    return parts[0];
-  } else if (parts.length === 2) {
-    // MM:SS format
-    return parts[0] * 60 + parts[1];
-  } else if (parts.length === 3) {
-    // HH:MM:SS format
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  } else {
-    throw new Error(`Invalid time format: ${timeStr}`);
-  }
+  const [s, m, h] = timeStr.split(':').map(t => parseFloat(t)).reverse();
+  return (h ?? 0) * 3600 + (m ?? 0) * 60 + s;
 };
 
 /**
