@@ -4,24 +4,7 @@ import { dirname } from 'path';
 import { mkdirSync } from 'fs';
 import { DatabaseConfig } from './types.js';
 
-// Database instance
-export let db: Knex | null = null;
-
-// Export database close function for testing
-export const closeDatabase = async (): Promise<void> => {
-  if (!db) {
-    return;
-  }
-  await db.destroy();
-  db = null;
-};
-
-export const initDatabase = async (testMode = false): Promise<void> => {
-  // Close existing database if any
-  if (db) {
-    await closeDatabase();
-  }
-
+const initDatabase = async (testMode = false): Promise<Knex> => {
   // Select environment based on testMode
   const environment = testMode ? 'test' : (process.env.NODE_ENV || 'development');
   const config = (knexConfig as Record<string, DatabaseConfig>)[environment];
@@ -35,10 +18,13 @@ export const initDatabase = async (testMode = false): Promise<void> => {
   }
 
   // Initialize Knex
-  db = knex(config);
+  const db = knex(config);
 
   // Run migrations
   await db.migrate.latest();
 
   console.log(`Storage service initialized (Knex: ${config.connection.filename})`);
+  return db;
 };
+
+export const db = await initDatabase();

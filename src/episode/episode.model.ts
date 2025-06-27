@@ -13,10 +13,6 @@ type EpisodeRow = Omit<Episode, 'ad_segments'> & {
 };
 
 export const getEpisode = async (feedHash: string, episodeGuid: string): Promise<Episode | null> => {
-  if (!db) {
-    throw new Error('Database not initialized');
-  }
-
   const episode = await db<EpisodeRow>('episodes')
     .where({ feed_hash: feedHash, episode_guid: episodeGuid })
     .first();

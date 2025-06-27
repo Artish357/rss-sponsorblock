@@ -3,7 +3,8 @@ import { GoogleGenerativeAI, GoogleGenerativeAIError } from '@google/generative-
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { firstAdBreakPrompt, firstAdBreakSchema } from './prompt';
-import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from '../trimming/trimming.service';
+import { extractAudioChunk, getAudioDuration } from '../trimming/trimming.service';
+import { timeToSeconds, secondsToTime } from '../general/timeHelpers';
 import dotenv from 'dotenv';
 import { AdSegment } from '../general/types';
 
