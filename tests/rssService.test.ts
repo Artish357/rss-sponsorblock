@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { fetchFeed, replaceAudioUrls, generateAudioUrl } from '../src/services/rssService';
+import { fetchFeed, replaceAudioUrls, generateAudioUrl } from '../src/feed/feed.service';
 
 describe('RSS Service', () => {
   test('generateAudioUrl - creates secure URL without original URL', () => {

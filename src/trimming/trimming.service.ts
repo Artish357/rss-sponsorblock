@@ -3,7 +3,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
-import type { AdSegment } from '../types/index.js';
+import type { AdSegment } from '../general/types.js';
 
 /**
  * Convert HH:MM:SS to seconds

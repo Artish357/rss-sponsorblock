@@ -1,7 +1,7 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { detectAllAdBreaks, detectFirstAdBreak } from '../src/services/geminiService';
-import * as audioProcessor from '../src/services/audioProcessor';
+import { detectAllAdBreaks, detectFirstAdBreak } from '../src/adDetection/gemini.service';
+import * as audioProcessor from '../src/trimming/trimming.service';
 import { mkdirSync, rmSync } from 'fs';
 
 describe('Gemini Service - Unit Tests', () => {

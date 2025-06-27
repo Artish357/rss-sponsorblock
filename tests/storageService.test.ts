@@ -1,10 +1,11 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService';
+import { createOrUpdateEpisode, getEpisode } from '../src/episode/episode.model';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
 import knex from 'knex';
 import knexConfig from '../knexfile.js';
+import { initDatabase, closeDatabase } from '../src/general/db';
 
 describe('Storage Service', () => {
   beforeEach(async () => {

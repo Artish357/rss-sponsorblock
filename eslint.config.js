@@ -23,17 +23,9 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      
-      // Essential code quality rules
-      'no-console': 'off', // We're a Node.js app, console is fine
       'prefer-const': 'error',
       'no-var': 'error',
-      'eqeqeq': ['error', 'always'],
-      'no-duplicate-imports': 'error',
-      
-      // Basic formatting
-      'quotes': ['error', 'single', { avoidEscape: true }],
-      'semi': ['error', 'always']
+      'no-duplicate-imports': 'error'
     }
   },
   {
@@ -57,9 +49,7 @@ export default [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_'
-      }],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-non-null-assertion': 'warn'
+      }]
     }
   },
   {

@@ -1,11 +1,11 @@
 // Audio processing service - orchestrates the full pipeline
-import { downloadAudio, getExistingAudioPath } from './audioDownloadService';
-import { detectAllAdBreaks } from './geminiService';
-import { removeAds } from './audioProcessor';
-import { getEpisode, createOrUpdateEpisode } from './storageService';
+import { downloadAudio, getExistingAudioPath } from './download.service';
+import { getEpisode, createOrUpdateEpisode } from './episode.model';
 import path from 'path';
 import { mkdirSync } from 'fs';
-import type { AdSegment, Episode } from '../types';
+import type { AdSegment, Episode } from '../general/types';
+import { detectAllAdBreaks } from '../adDetection/gemini.service';
+import { removeAds } from '../trimming/trimming.service';
 
 type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_url'>
 

@@ -4,8 +4,9 @@ import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { initDatabase, closeDatabase, createOrUpdateEpisode, getEpisode } from '../src/services/storageService';
-import { processEpisode, processBacklog } from '../src/services/episodeProcessingService';
+import { createOrUpdateEpisode, getEpisode } from '../src/episode/episode.model';
+import { processEpisode, processBacklog } from '../src/episode/episode.service';
+import { initDatabase, closeDatabase } from '../src/general/db';
 
 const execAsync = promisify(exec);
 

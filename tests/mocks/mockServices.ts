@@ -2,7 +2,7 @@
 
 import { existsSync } from 'fs';
 import path from 'path';
-import type { AdSegment } from '../../src/types';
+import type { AdSegment } from '../../src/general/types';
 
 interface TestDownloadService {
   downloadAudio: (url: string, feedHash: string, episodeGuid: string) => Promise<string>;

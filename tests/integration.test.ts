@@ -1,12 +1,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { rmSync } from 'fs';
-import { fetchFeed, replaceAudioUrls } from '../src/services/rssService';
-import { initDatabase, createOrUpdateEpisode, getEpisode, closeDatabase } from '../src/services/storageService';
-import { processEpisode } from '../src/services/episodeProcessingService';
-import { detectFirstAdBreak, detectAllAdBreaks } from '../src/services/geminiService';
-import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/services/audioProcessor';
-import { downloadAudio, getExistingAudioPath } from '../src/services/audioDownloadService';
+import { fetchFeed, replaceAudioUrls } from '../src/feed/feed.service';
+import { createOrUpdateEpisode, getEpisode } from '../src/episode/episode.model';
+import { detectFirstAdBreak, detectAllAdBreaks } from '../src/adDetection/gemini.service';
+import { extractAudioChunk, removeAds, getAudioDuration, timeToSeconds, secondsToTime } from '../src/trimming/trimming.service';
+import { downloadAudio, getExistingAudioPath } from '../src/episode/download.service';
+import { processEpisode } from '../src/episode/episode.service';
+import { initDatabase, closeDatabase } from '../src/general/db';
 
 describe('Integration Tests - API Contracts', () => {
   const testDir = './temp/test-integration';

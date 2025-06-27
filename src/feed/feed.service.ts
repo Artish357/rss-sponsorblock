@@ -1,7 +1,7 @@
 // RSS fetching, parsing, and URL replacement service
 import { createHash } from 'crypto';
 import xml2js from 'xml2js';
-import type { RSSFeed, RSSEpisode } from '../types/index.js';
+import type { RSSFeed, RSSEpisode } from '../general/types.js';
 
 export const generateAudioUrl = (feedHash: string, episodeGuid: string, baseUrl: string): string => {
   // Clean episode GUID to ensure URL-safe format

@@ -2,10 +2,10 @@
 import { GoogleGenerativeAI, GoogleGenerativeAIError } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { firstAdBreakPrompt, firstAdBreakSchema } from '../prompts/adDetection';
-import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from './audioProcessor';
+import { firstAdBreakPrompt, firstAdBreakSchema } from './prompt';
+import { extractAudioChunk, getAudioDuration, timeToSeconds, secondsToTime } from '../trimming/trimming.service';
 import dotenv from 'dotenv';
-import { AdSegment } from '../types';
+import { AdSegment } from '../general/types';
 
 dotenv.config();
 
