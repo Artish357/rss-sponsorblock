@@ -16,22 +16,37 @@ export interface GeminiAdSegment {
   confidence?: number;
 }
 
-// Initialize Gemini AI
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error('No Gemini API key set');
+// Initialize default Gemini AI client
+let defaultGenAI: GoogleGenerativeAI | null = null;
+
+// Initialize default client only when needed
+function getDefaultClient(): GoogleGenerativeAI {
+  if (!defaultGenAI) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('No Gemini API key set');
+    }
+    defaultGenAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+  return defaultGenAI;
 }
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * Detect the first ad break in an audio chunk
  */
-export const detectFirstAdBreak = async (chunkPath: string): Promise<AdSegment | null> => {
+export const detectFirstAdBreak = async (
+  chunkPath: string, 
+  customClient?: GoogleGenerativeAI,
+  customModel?: string
+): Promise<AdSegment | null> => {
   if (!chunkPath) {
     throw new Error('Failed to detect ad break: chunk path is required');
   }
 
-  const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+  const client = customClient || getDefaultClient();
+  const modelName = customModel || process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+  
+  const model = client.getGenerativeModel({
+    model: modelName,
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: firstAdBreakSchema
@@ -66,7 +81,12 @@ export const detectFirstAdBreak = async (chunkPath: string): Promise<AdSegment |
 /**
  * Detect all ad breaks in an audio file using iterative processing
  */
-export const detectAllAdBreaks = async (audioPath: string): Promise<AdSegment[]> => {
+export const detectAllAdBreaks = async (
+  audioPath: string,
+  customClient?: GoogleGenerativeAI,
+  customModel?: string,
+  onProgress?: (currentChunk: number, totalChunks: number) => void
+): Promise<AdSegment[]> => {
   if (!audioPath) {
     throw new Error('Invalid audio path: path is required');
   }
@@ -74,21 +94,36 @@ export const detectAllAdBreaks = async (audioPath: string): Promise<AdSegment[]>
   const duration = await getAudioDuration(audioPath);
   const adBreaks = [];
   let currentPosition = 0; // seconds
+  
+  // Calculate total chunks upfront based on initial duration
+  const CHUNK_SIZE = 1800; // 30 minutes
+  const totalChunks = Math.ceil(duration / CHUNK_SIZE);
+  let currentChunk = 0;
 
-  console.log(`Starting ad break detection for ${secondsToTime(duration)}s audio`);
+  console.log(`Starting ad break detection for ${secondsToTime(duration)}s audio (${totalChunks} chunks)`);
 
   while (currentPosition < duration) {
     // Calculate chunk duration (30 minutes or remaining duration)
-    const chunkDuration = Math.min(1800, duration - currentPosition);
+    const chunkDuration = Math.min(CHUNK_SIZE, duration - currentPosition);
+    currentChunk++;
+    
+    // Ensure we don't exceed total chunks even if processing takes extra iterations
+    if (currentChunk > totalChunks) {
+      currentChunk = totalChunks;
+    }
+    
+    if (onProgress) {
+      onProgress(currentChunk, totalChunks);
+    }
 
-    console.log(`Processing chunk at ${secondsToTime(currentPosition)}s (${chunkDuration}s duration)`);
+    console.log(`Processing chunk ${currentChunk}/${totalChunks} at ${secondsToTime(currentPosition)}s (${chunkDuration}s duration)`);
 
     // Extract chunk
     const chunkPath = await extractAudioChunk(audioPath, currentPosition, chunkDuration);
 
     try {
       // Detect first ad break in this chunk
-      const adBreak = await detectFirstAdBreak(chunkPath);
+      const adBreak = await detectFirstAdBreak(chunkPath, customClient, customModel);
 
       if (adBreak) {
         // Convert relative timestamps to absolute

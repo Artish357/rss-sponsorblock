@@ -32,6 +32,7 @@ export interface RSSEpisode {
   audioUrl: string;
   pubDate: string;
   duration?: string;
+  artwork?: string;
 }
 
 export interface ProcessingResult {

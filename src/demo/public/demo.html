@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSS SponsorBlock Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        select {
+            padding-right: 30px;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .episodes {
+            margin-top: 30px;
+        }
+        .episode {
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #fafafa;
+            display: flex;
+            gap: 15px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .pagination button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .pagination button:disabled {
+            background: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            font-size: 14px;
+            color: #666;
+        }
+        .episode-artwork {
+            width: 80px;
+            height: 80px;
+            border-radius: 4px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .episode-content {
+            flex: 1;
+        }
+        .episode.processing {
+            background: #fff3cd;
+            border-color: #ffeeba;
+        }
+        .episode.completed {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .episode.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .episode-title {
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        .episode-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status {
+            font-size: 14px;
+            color: #666;
+        }
+        .segments {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .segment {
+            margin-bottom: 5px;
+        }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .message.error {
+            background: #dc3545;
+        }
+        .message.warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .message.success {
+            background: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RSS SponsorBlock Demo</h1>
+        <p class="subtitle">Try RSS SponsorBlock with your own Gemini API key</p>
+        
+        <div class="info-box">
+            <strong>How it works:</strong> Enter your Gemini API key and a podcast RSS URL below. 
+            The app will detect and remove ads from episodes using AI. Processing happens on-demand 
+            when you click on an episode.
+            <br><br>
+            <strong>Note:</strong> Processing can take 3-5 minutes per episode depending on length, as the AI analyzes the entire audio file in chunks.
+        </div>
+        
+        <div class="info-box" style="background: #fff3cd; border-color: #ffeeba; margin-top: 10px;">
+            <strong>Demo Limitations:</strong>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                <li>Processing uses your API key and quota</li>
+                <li>Only one episode can be processed at a time</li>
+                <li>No feed URL is generated for podcast apps</li>
+                <li>Processed files are temporary</li>
+            </ul>
+            <p style="margin-top: 10px;">
+                For full functionality, 
+                <a href="https://github.com/temy/rss-sponsorblock#quick-start" target="_blank">
+                    install RSS SponsorBlock on your own server
+                </a>.
+            </p>
+        </div>
+        
+        <form id="demoForm">
+            <div class="form-group">
+                <label for="feedUrl">Podcast RSS URL</label>
+                <input type="url" id="feedUrl" placeholder="https://example.com/podcast.rss" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="apiKey">Gemini API Key</label>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key" required>
+                <small style="display: block; margin-top: 5px; color: #666;">
+                    Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label for="model">Model</label>
+                <select id="model" required>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Free)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Paid)</option>
+                </select>
+            </div>
+            
+            <button type="submit" id="loadFeedBtn">Load Feed</button>
+        </form>
+        
+        <div id="episodes" class="episodes" style="display: none;">
+            <h2 id="feedTitle"></h2>
+            <div id="episodesList"></div>
+            <div id="pagination" class="pagination" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentProcessing = null;
+        const episodeData = {};
+        let allEpisodes = [];
+        let currentPage = 1;
+        const episodesPerPage = 20;
+        
+        // Form elements
+        const form = document.getElementById('demoForm');
+        const apiKeyInput = document.getElementById('apiKey');
+        const modelSelect = document.getElementById('model');
+        const feedUrlInput = document.getElementById('feedUrl');
+        const loadFeedBtn = document.getElementById('loadFeedBtn');
+        const episodesDiv = document.getElementById('episodes');
+        const feedTitleEl = document.getElementById('feedTitle');
+        const episodesListEl = document.getElementById('episodesList');
+        
+        // Load cached values on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const cachedFeedUrl = localStorage.getItem('demo_feedUrl');
+            const cachedApiKey = localStorage.getItem('demo_apiKey');
+            const cachedModel = localStorage.getItem('demo_model');
+            
+            if (cachedFeedUrl) feedUrlInput.value = cachedFeedUrl;
+            if (cachedApiKey) apiKeyInput.value = cachedApiKey;
+            if (cachedModel) modelSelect.value = cachedModel;
+        });
+        
+        // Save values to cache on input
+        feedUrlInput.addEventListener('input', () => {
+            localStorage.setItem('demo_feedUrl', feedUrlInput.value);
+        });
+        
+        apiKeyInput.addEventListener('input', () => {
+            localStorage.setItem('demo_apiKey', apiKeyInput.value);
+        });
+        
+        modelSelect.addEventListener('change', () => {
+            localStorage.setItem('demo_model', modelSelect.value);
+        });
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await loadFeed();
+        });
+        
+        // Load feed
+        async function loadFeed() {
+            loadFeedBtn.disabled = true;
+            loadFeedBtn.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/demo/feed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feedUrl: feedUrlInput.value })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to load feed');
+                }
+                
+                const feed = await response.json();
+                displayFeed(feed);
+            } catch (error) {
+                showMessage(`Error loading feed: ${error.message}`, 'error');
+            } finally {
+                loadFeedBtn.disabled = false;
+                loadFeedBtn.textContent = 'Load Feed';
+            }
+        }
+        
+        // Display feed
+        function displayFeed(feed) {
+            feedTitleEl.textContent = feed.title;
+            allEpisodes = feed.episodes;
+            currentPage = 1;
+            
+            // Store all episode data
+            feed.episodes.forEach(episode => {
+                episodeData[`${feed.feedHash}:${episode.guid}`] = {
+                    audioUrl: episode.audioUrl,
+                    duration: episode.duration,
+                    actualDuration: null,
+                    feedHash: feed.feedHash
+                };
+            });
+            
+            displayPage(feed.feedHash);
+            episodesDiv.style.display = 'block';
+        }
+        
+        // Display current page of episodes
+        function displayPage(feedHash) {
+            episodesListEl.innerHTML = '';
+            
+            const startIndex = (currentPage - 1) * episodesPerPage;
+            const endIndex = Math.min(startIndex + episodesPerPage, allEpisodes.length);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const episodeEl = createEpisodeElement(allEpisodes[i], feedHash);
+                episodesListEl.appendChild(episodeEl);
+            }
+            
+            updatePagination();
+        }
+        
+        // Update pagination controls
+        function updatePagination() {
+            const paginationEl = document.getElementById('pagination');
+            const totalPages = Math.ceil(allEpisodes.length / episodesPerPage);
+            
+            if (totalPages <= 1) {
+                paginationEl.style.display = 'none';
+                return;
+            }
+            
+            paginationEl.innerHTML = `
+                <button onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>← Previous</button>
+                <span>Page ${currentPage} of ${totalPages}</span>
+                <button onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>
+            `;
+            paginationEl.style.display = 'flex';
+        }
+        
+        // Change page
+        window.changePage = function(direction) {
+            const totalPages = Math.ceil(allEpisodes.length / episodesPerPage);
+            const newPage = currentPage + direction;
+            
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                const feedHash = Object.values(episodeData)[0]?.feedHash;
+                if (feedHash) {
+                    displayPage(feedHash);
+                    // Scroll to top of episodes
+                    episodesDiv.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        }
+        
+        // Create episode element
+        function createEpisodeElement(episode, feedHash) {
+            const div = document.createElement('div');
+            div.className = 'episode';
+            div.id = `episode-${episode.guid}`;
+            
+            const durationText = episode.duration ? ` (${formatDuration(episode.duration)})` : '';
+            const artworkHtml = episode.artwork 
+                ? `<img src="${episode.artwork}" alt="${episode.title}" class="episode-artwork">` 
+                : '<div class="episode-artwork" style="background: #ddd;"></div>';
+            
+            div.innerHTML = `
+                ${artworkHtml}
+                <div class="episode-content">
+                    <div class="episode-title">${episode.title}${durationText}</div>
+                    <div class="episode-controls">
+                        <button onclick="processEpisode('${feedHash}', '${episode.guid}')" 
+                                id="btn-${episode.guid}"
+                                class="process-btn">
+                            Process Episode
+                        </button>
+                        <span class="status" id="status-${episode.guid}"></span>
+                    </div>
+                    <div id="results-${episode.guid}"></div>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        // Process episode
+        async function processEpisode(feedHash, episodeGuid) {
+            // Check if already processing
+            if (currentProcessing) {
+                showMessage('Another episode is currently processing. Please wait.', 'warning');
+                return;
+            }
+            
+            // Check for API key
+            if (!apiKeyInput.value) {
+                showMessage('Please enter your Gemini API key', 'error');
+                return;
+            }
+            
+            currentProcessing = `${feedHash}:${episodeGuid}`;
+            const episodeKey = currentProcessing;
+            const episodeInfo = episodeData[episodeKey];
+            const originalUrl = episodeInfo.audioUrl;
+            
+            // Disable all process buttons
+            document.querySelectorAll('.process-btn').forEach(btn => {
+                btn.disabled = true;
+            });
+            
+            // Update UI
+            updateEpisodeUI(episodeGuid, 'processing', 'Starting...');
+            const btn = document.getElementById(`btn-${episodeGuid}`);
+            
+            try {
+                // Trigger processing by requesting the audio
+                const audioUrl = `/demo/audio/${feedHash}/${encodeURIComponent(episodeGuid)}.mp3`;
+                
+                // First request to trigger processing
+                const response = await fetchWithCredentials(audioUrl, originalUrl);
+                
+                if (response.status === 202) {
+                    // Processing started, poll for status
+                    await pollForCompletion(feedHash, episodeGuid);
+                } else if (response.ok) {
+                    // Already processed
+                    await displayResults(feedHash, episodeGuid);
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Processing failed');
+                }
+            } catch (error) {
+                updateEpisodeUI(episodeGuid, 'error', `Error: ${error.message}`);
+            } finally {
+                currentProcessing = null;
+                // Re-enable all process buttons
+                document.querySelectorAll('.process-btn').forEach(btn => {
+                    btn.disabled = false;
+                });
+            }
+        }
+        
+        // Fetch with credentials
+        async function fetchWithCredentials(url, originalUrl = null) {
+            const headers = {
+                'X-Gemini-API-Key': apiKeyInput.value,
+                'X-Gemini-Model': modelSelect.value
+            };
+            
+            if (originalUrl) {
+                headers['X-Original-URL'] = originalUrl;
+            }
+            
+            return fetch(url, { headers });
+        }
+        
+        // Poll for completion
+        async function pollForCompletion(feedHash, episodeGuid) {
+            const startTime = Date.now();
+            const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+            
+            while (Date.now() - startTime < maxWaitTime) {
+                const response = await fetch(`/demo/status/${feedHash}/${encodeURIComponent(episodeGuid)}`);
+                const status = await response.json();
+                
+                if (status.status === 'completed') {
+                    await displayResults(feedHash, episodeGuid);
+                    return;
+                } else if (status.status === 'error') {
+                    throw new Error(status.error || 'Processing failed');
+                } else {
+                    // Update status with detailed progress
+                    let statusText = status.status;
+                    if (status.status === 'downloading') {
+                        statusText = 'Downloading episode...';
+                    } else if (status.status === 'analyzing') {
+                        statusText = 'Analyzing audio for ads...';
+                        if (status.currentChunk && status.totalChunks) {
+                            statusText += ` (chunk ${status.currentChunk}/${status.totalChunks})`;
+                        }
+                    } else if (status.status === 'processing') {
+                        statusText = 'Removing detected ads...';
+                    }
+                    
+                    updateEpisodeUI(episodeGuid, 'processing', statusText);
+                }
+                
+                // Wait 1 second for more responsive updates
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            throw new Error('Processing timeout');
+        }
+        
+        // Display results
+        async function displayResults(feedHash, episodeGuid) {
+            const response = await fetch(`/demo/status/${feedHash}/${encodeURIComponent(episodeGuid)}`);
+            const status = await response.json();
+            
+            updateEpisodeUI(episodeGuid, 'completed', 'Completed');
+            
+            const resultsEl = document.getElementById(`results-${episodeGuid}`);
+            let html = '';
+            
+            if (status.segments && status.segments.length > 0) {
+                html += '<div class="segments"><strong>Detected Ad Segments:</strong>';
+                let totalAdTime = 0;
+                status.segments.forEach((segment, i) => {
+                    const segmentDuration = segment.end - segment.start;
+                    totalAdTime += segmentDuration;
+                    html += `<div class="segment">Segment ${i + 1}: ${formatTime(segment.start)} - ${formatTime(segment.end)}</div>`;
+                });
+                html += '</div>';
+                
+                // Calculate and show time saved
+                const timeSaved = Math.round(totalAdTime);
+                html += `<div style="margin-top: 10px; font-weight: 500; color: #28a745;">Time saved: ${formatTime(timeSaved)}</div>`;
+            } else {
+                html += '<div class="segments">No ads detected in this episode.</div>';
+            }
+            
+            if (status.processingTime) {
+                html += `<div style="font-size: 14px; color: #666; margin-top: 5px;">Processing time: ${Math.round(status.processingTime / 1000)}s</div>`;
+            }
+            
+            // Add audio player container
+            html += `<audio controls id="audio-${episodeGuid}"></audio>`;
+            
+            resultsEl.innerHTML = html;
+            
+            // Fetch audio with credentials and create blob URL
+            const audioUrl = `/demo/audio/${feedHash}/${encodeURIComponent(episodeGuid)}.mp3`;
+            fetchWithCredentials(audioUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    const audio = document.getElementById(`audio-${episodeGuid}`);
+                    audio.src = blobUrl;
+                    
+                    // Add duration info when audio loads
+                    audio.addEventListener('loadedmetadata', () => {
+                        const processedDuration = audio.duration;
+                        const episode = episodeData[`${feedHash}:${episodeGuid}`];
+                        
+                        // Use actual duration from server if available, otherwise fall back to RSS feed duration
+                        const originalDuration = status.actualDuration || parseDuration(episode.duration);
+                        
+                        if (originalDuration > 0 && status.segments) {
+                            // Calculate total time cut
+                            let totalCutTime = 0;
+                            status.segments.forEach(segment => {
+                                totalCutTime += (segment.end - segment.start);
+                            });
+                            
+                            const expectedDuration = originalDuration - totalCutTime;
+                            const durationInfo = document.createElement('div');
+                            durationInfo.style.cssText = 'margin-top: 10px; font-size: 14px; color: #666;';
+                            
+                            // Show both actual and expected if they differ significantly
+                            if (Math.abs(processedDuration - expectedDuration) > 5) {
+                                durationInfo.innerHTML = `Original: ${formatTime(originalDuration)} → Processed: ${formatTime(processedDuration)} (expected ${formatTime(expectedDuration)})`;
+                            } else {
+                                durationInfo.innerHTML = `Original: ${formatTime(originalDuration)} → Processed: ${formatTime(processedDuration)}`;
+                            }
+                            
+                            // Add note if RSS duration differs from actual
+                            if (episode.duration && status.actualDuration) {
+                                const rssDuration = parseDuration(episode.duration);
+                                if (Math.abs(rssDuration - status.actualDuration) > 60) {
+                                    durationInfo.innerHTML += `<br><small style="color: #999;">RSS listed duration: ${formatTime(rssDuration)}</small>`;
+                                }
+                            }
+                            
+                            audio.parentElement.insertBefore(durationInfo, audio);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading audio:', error);
+                });
+        }
+        
+        // Update episode UI
+        function updateEpisodeUI(episodeGuid, status, message) {
+            const episodeEl = document.getElementById(`episode-${episodeGuid}`);
+            const statusEl = document.getElementById(`status-${episodeGuid}`);
+            
+            // Remove all status classes
+            episodeEl.classList.remove('processing', 'completed', 'error');
+            
+            // Add new status class
+            if (status !== 'pending') {
+                episodeEl.classList.add(status);
+            }
+            
+            // Update status text
+            if (status === 'processing') {
+                statusEl.innerHTML = `<span class="loading"></span> ${message}`;
+            } else {
+                statusEl.textContent = message;
+            }
+        }
+        
+        // Format time in seconds to HH:MM:SS or MM:SS
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Format duration string (HH:MM:SS or MM:SS or seconds)
+        function formatDuration(duration) {
+            if (!duration) return '';
+            
+            // If it's already formatted (contains :), return as is
+            if (duration.includes(':')) {
+                return duration;
+            }
+            
+            // If it's a number in seconds, format it
+            const seconds = parseInt(duration);
+            if (!isNaN(seconds)) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                
+                if (hours > 0) {
+                    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                } else {
+                    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+                }
+            }
+            
+            return duration;
+        }
+        
+        // Parse duration string to seconds
+        function parseDuration(duration) {
+            if (!duration) return 0;
+            
+            // If already a number, return it
+            if (!isNaN(duration)) {
+                return parseInt(duration);
+            }
+            
+            // Parse HH:MM:SS or MM:SS format
+            const parts = duration.split(':').map(p => parseInt(p));
+            if (parts.length === 3) {
+                return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            } else if (parts.length === 2) {
+                return parts[0] * 60 + parts[1];
+            }
+            
+            return 0;
+        }
+        
+        // Show message function
+        function showMessage(message, type = 'info') {
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            messageEl.textContent = message;
+            document.body.appendChild(messageEl);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                messageEl.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
