@@ -4,6 +4,11 @@ import { mkdirSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import type { AdSegment } from '../general/types.js';
+import {path as ffmpegPath} from "@ffmpeg-installer/ffmpeg"
+import {path as ffprobePath} from "@ffprobe-installer/ffprobe"
+
+ffmpeg.setFfmpegPath(ffmpegPath)
+ffmpeg.setFfprobePath(ffprobePath);
 
 /**
  * Get audio duration
