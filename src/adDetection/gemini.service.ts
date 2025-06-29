@@ -81,18 +81,17 @@ export const detectFirstAdBreak = async (
 /**
  * Detect all ad breaks in an audio file using iterative processing
  */
-export const detectAllAdBreaks = async (
+export async function* detectAllAdBreaks (
   audioPath: string,
   customClient?: GoogleGenerativeAI,
   customModel?: string,
   onProgress?: (currentChunk: number, totalChunks: number) => void
-): Promise<AdSegment[]> => {
+): AsyncGenerator<AdSegment> {
   if (!audioPath) {
     throw new Error('Invalid audio path: path is required');
   }
 
   const duration = await getAudioDuration(audioPath);
-  const adBreaks = [];
   let currentPosition = 0; // seconds
   
   // Calculate total chunks upfront based on initial duration
@@ -130,11 +129,12 @@ export const detectAllAdBreaks = async (
         adBreak.start = currentPosition + adBreak.start;
         adBreak.end = currentPosition + adBreak.end;
 
-        adBreaks.push(adBreak);
         console.log(`Found ad break: ${secondsToTime(adBreak.start)}s - ${secondsToTime(adBreak.end)}s`);
-
+        
         // Jump to 60 seconds after this ad break
         currentPosition = adBreak.end + 60;
+
+        yield adBreak;
       } else {
         console.log('No ad break found in chunk');
         // No ad break found, move to next chunk
@@ -145,7 +145,4 @@ export const detectAllAdBreaks = async (
       await unlink(chunkPath).catch(() => {}); // Ignore errors
     }
   }
-
-  console.log(`Ad detection complete. Found ${adBreaks.length} ad breaks`);
-  return adBreaks;
 };

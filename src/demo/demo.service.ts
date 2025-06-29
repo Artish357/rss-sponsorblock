@@ -6,6 +6,7 @@ import { removeAds, getAudioDuration } from '../trimming/trimming.service';
 import { AdSegment } from '../general/types';
 import { mkdirSync } from 'fs';
 import path from 'path';
+import { secondsToTime } from '../general/timeHelpers';
 
 // In-memory status storage
 const demoStatus = new Map<string, DemoStatus>();
@@ -57,7 +58,6 @@ export async function processDemoEpisode(
     // Update status: processing (preserve actualDuration)
     const currentStatus = demoStatus.get(statusKey)!;
     demoStatus.set(statusKey, { ...currentStatus, status: 'processing' });
-    console.log(`Demo: Processing audio to remove ${segments.length} ad segments`);
     
     // Create output directory
     const outputDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
@@ -65,15 +65,9 @@ export async function processDemoEpisode(
     
     // Generate output path
     const processedPath = path.join(outputDir, `${episodeGuid}.mp3`);
-    
+
     // Remove ads
-    if (segments.length > 0) {
-      await removeAds(originalPath, processedPath, segments);
-    } else {
-      // No ads found, just copy the original
-      const { copyFile } = await import('fs/promises');
-      await copyFile(originalPath, processedPath);
-    }
+    const removedSegments = await removeAds(originalPath, processedPath, segments)
     
     // Update status: completed (preserve actualDuration)
     const processingTime = Date.now() - startTime;
@@ -81,11 +75,11 @@ export async function processDemoEpisode(
     demoStatus.set(statusKey, {
       ...finalStatus,
       status: 'completed',
-      segments,
+      segments: removedSegments,
       processingTime
     });
     
-    console.log(`Demo: Processing completed in ${processingTime}ms`);
+    console.log(`Demo: Processing completed in ${secondsToTime(processingTime / 1000)}`);
     return processedPath;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -103,12 +97,12 @@ async function detectAllAdBreaksWithCustomClient(
   apiKey: string,
   model: string,
   statusKey: string
-): Promise<AdSegment[]> {
+) {
   // Create a custom Gemini client with user's credentials
   const customClient = new GoogleGenerativeAI(apiKey);
   
   // Use the refactored function with custom client and progress callback
-  const segments = await detectAllAdBreaks(audioPath, customClient, model, (currentChunk, totalChunks) => {
+  const segments = detectAllAdBreaks(audioPath, customClient, model, (currentChunk, totalChunks) => {
     const status = demoStatus.get(statusKey);
     if (status && status.status === 'analyzing') {
       demoStatus.set(statusKey, {

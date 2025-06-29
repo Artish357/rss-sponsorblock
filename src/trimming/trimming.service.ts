@@ -29,7 +29,7 @@ export const getAudioDuration = async (inputPath: string): Promise<number> => ne
 export const extractAudioChunk = async (
   inputPath: string, 
   startSeconds: number, 
-  durationSeconds: number, 
+  durationSeconds: number | undefined, 
   forAnalysis = true
 ): Promise<string> => {
   const tempDir = path.join(os.tmpdir(), 'rss-sponsorblock');
@@ -39,8 +39,11 @@ export const extractAudioChunk = async (
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath)
       .setStartTime(startSeconds)
-      .setDuration(durationSeconds)
       .output(tempPath);
+
+      if(durationSeconds) {
+        command.setDuration(durationSeconds)
+      }
 
     if (forAnalysis) {
       // Downsample to 16kbps mono for Gemini analysis
@@ -55,11 +58,10 @@ export const extractAudioChunk = async (
     }
 
     command
-      .on('start', (_cmd) => {
-        console.log(`Extracting chunk: ${startSeconds}s for ${durationSeconds}s${forAnalysis ? ' (downsampled)' : ''}`);
+      .on("start", (cmd) => {
+        console.log(cmd)
       })
       .on('end', () => {
-        console.log(`Chunk extracted: ${tempPath}`);
         resolve(tempPath);
       })
       .on('error', (err) => {
@@ -76,30 +78,40 @@ export const extractAudioChunk = async (
 export const removeAds = async (
   inputPath: string, 
   outputPath: string, 
-  adSegments: AdSegment[]
-): Promise<void> => {
-  console.log(`Removing ${adSegments.length} ad segments`);
+  adSegments: AdSegment[] | AsyncGenerator<AdSegment>
+): Promise<AdSegment[]> => {
+  if (Array.isArray(adSegments)) {
+    console.log(`Removing ${adSegments.length} ad segments`);
+  } else {
+    console.log(`Removing ad segments from stream`);
+  }
+  const audioChunks = Array<string>();
+  const adSegmentsResult: AdSegment[] = [];
+  let from = 0;
+  for await (const adSegment of adSegments) {
+    adSegmentsResult.push(adSegment);
+    audioChunks.push(await extractAudioChunk(inputPath, from, adSegment.end - from, false));
+    from = adSegment.end
+  }
+  audioChunks.push(await extractAudioChunk(inputPath, from, undefined, false));
+
+  const tempDir = path.join(os.tmpdir(), 'rss-sponsorblock');
+  mkdirSync(tempDir, { recursive: true });
+
   return new Promise((resolve, reject) => {
-    const command = ffmpeg(inputPath);
-      //aselect='not(between(t,184,314)+between(t,1608,1865))
-      const filterSegments = adSegments.map(s => `between(t,${s.start},${s.end})`);
-      if (filterSegments.length) {
-        const filter = `aselect='not(${filterSegments.join('+')})'`;
-        command.complexFilter(filter);
-      }
-      command
-        .on('start', (cmd) => {
-          console.log('FFmpeg command:', cmd);
-        })
-        .on('end', () => {
-          console.log('Ad removal complete');
-          resolve();
-        })
-        .on('error', (err) => {
-          console.error('FFmpeg error:', err);
-          reject(err);
-        })
-        .save(outputPath);
-    }
-  );
+    ffmpeg(`concat:${audioChunks.join("|")}`)
+      .audioCodec('copy')
+      .output(outputPath)
+      .on("start", (cmd) => {
+        console.log(cmd)
+      })
+      .on('end', () => {
+        resolve(adSegmentsResult);
+      })
+      .on('error', (err) => {
+        console.error('Error extracting chunk:', err);
+        reject(err);
+      })
+      .run();
+  });
 };

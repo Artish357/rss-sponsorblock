@@ -44,7 +44,10 @@ export const processEpisode = async (
 
     // Step 2: Detect ad breaks using iterative chunking approach
     console.log('Detecting ad breaks...');
-    const adBreaks: AdSegment[] = (await detectAllAdBreaks(audioPath)).filter(Boolean);
+    const adBreaks: AdSegment[] = []
+    for await (const adBreak of detectAllAdBreaks(audioPath)) {
+      adBreaks.push(adBreak)
+    }
 
     console.log(`Found ${adBreaks.length} ad breaks`);
 
