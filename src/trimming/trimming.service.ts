@@ -90,7 +90,7 @@ export const removeAds = async (
   let from = 0;
   for await (const adSegment of adSegments) {
     adSegmentsResult.push(adSegment);
-    audioChunks.push(await extractAudioChunk(inputPath, from, adSegment.end - from, false));
+    audioChunks.push(await extractAudioChunk(inputPath, from, adSegment.start - from, false));
     from = adSegment.end
   }
   audioChunks.push(await extractAudioChunk(inputPath, from, undefined, false));

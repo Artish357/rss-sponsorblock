@@ -53,17 +53,23 @@ router.get('/demo/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: R
   const originalUrl = req.headers['x-original-url'] as string;
   const lockKey = `${feedHash}:${decodedGuid}`;
   
-  // Validate required headers
-  if (!apiKey || !model) {
-    res.status(400).json({ error: 'API key and model required' });
-    return;
-  }
-  
-  // Check if already processed
+  // Check if already processed - no API key needed for serving existing files
   const filePath = path.join(process.cwd(), 'storage', 'audio', feedHash, 'processed', `${decodedGuid}.mp3`);
   if (existsSync(filePath)) {
     console.log(`Serving processed demo audio: ${filePath}`);
     res.sendFile(filePath);
+    return;
+  }
+  
+  // For processing new episodes, validate required headers
+  if (!apiKey || !model) {
+    res.status(400).json({ error: 'API key and model required for processing' });
+    return;
+  }
+  
+  // Check if this episode is already being processed
+  if (processingLocks.has(lockKey)) {
+    res.status(202).json({ message: 'Already processing' });
     return;
   }
   
@@ -82,28 +88,20 @@ router.get('/demo/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: R
   }
   
   // Process with lock
-  if (!processingLocks.has(lockKey)) {
-    console.log(`Starting demo processing for: ${decodedGuid}`);
-    activeKeys.add(apiKey);
-    
-    const promise = processDemoEpisode(feedHash, decodedGuid, originalUrl, apiKey, model);
-    processingLocks.set(lockKey, promise);
-    
-    promise.finally(() => {
-      processingLocks.delete(lockKey);
-      activeKeys.delete(apiKey);
-    });
-    
-    // Return 202 Accepted immediately to indicate processing has started
-    res.status(202).json({ message: 'Processing started' });
-    return;
-  }
+  console.log(`Starting demo processing for: ${decodedGuid}`);
+  activeKeys.add(apiKey);
   
-  // If already processing, return 202
-  if (processingLocks.has(lockKey)) {
-    res.status(202).json({ message: 'Already processing' });
-    return;
-  }
+  const promise = processDemoEpisode(feedHash, decodedGuid, originalUrl, apiKey, model);
+  processingLocks.set(lockKey, promise);
+  
+  promise.finally(() => {
+    processingLocks.delete(lockKey);
+    activeKeys.delete(apiKey);
+  });
+  
+  // Return 202 Accepted immediately to indicate processing has started
+  res.status(202).json({ message: 'Processing started' });
+  return;
 });
 
 // Get processing status

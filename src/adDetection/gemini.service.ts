@@ -85,7 +85,7 @@ export async function* detectAllAdBreaks (
   audioPath: string,
   customClient?: GoogleGenerativeAI,
   customModel?: string,
-  onProgress?: (currentChunk: number, totalChunks: number) => void
+  onProgress?: (currentChunk: number, totalChunks: number, currentPosition: number) => void
 ): AsyncGenerator<AdSegment> {
   if (!audioPath) {
     throw new Error('Invalid audio path: path is required');
@@ -112,7 +112,7 @@ export async function* detectAllAdBreaks (
     }
     
     if (onProgress) {
-      onProgress(currentChunk, totalChunks);
+      onProgress(currentChunk, totalChunks, currentPosition);
     }
 
     console.log(`Processing chunk ${currentChunk}/${totalChunks} at ${secondsToTime(currentPosition)}s (${chunkDuration}s duration)`);

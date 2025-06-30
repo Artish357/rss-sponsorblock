@@ -3,23 +3,18 @@ import { fetchFeed } from '../feed/feed.service';
 import { downloadAudio } from '../episode/download.service';
 import { detectAllAdBreaks } from '../adDetection/gemini.service';
 import { removeAds, getAudioDuration } from '../trimming/trimming.service';
-import { AdSegment } from '../general/types';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import { secondsToTime } from '../general/timeHelpers';
+import { createOrUpdateEpisode, getEpisode } from '../episode/episode.model';
 
-// In-memory status storage
-const demoStatus = new Map<string, DemoStatus>();
+// In-memory storage for active processing progress only
+const activeProcessing = new Map<string, ProcessingProgress>();
 
-interface DemoStatus {
-  status: 'pending' | 'downloading' | 'analyzing' | 'processing' | 'completed' | 'error';
-  segments?: AdSegment[];
-  processingTime?: number;
-  error?: string;
-  progress?: string;
-  currentChunk?: number;
-  totalChunks?: number;
-  actualDuration?: number;
+interface ProcessingProgress {
+  currentPosition: number; // Current audio position being analyzed
+  totalDuration: number;   // Total audio duration
+  lastAdEnd?: number;      // End position of last detected ad
 }
 
 export async function fetchDemoFeed(url: string) {
@@ -37,8 +32,11 @@ export async function processDemoEpisode(
   const startTime = Date.now();
   
   try {
-    // Update status: downloading
-    demoStatus.set(statusKey, { status: 'downloading' });
+    // Create initial episode record
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
+      original_url: originalUrl,
+      status: 'downloading'
+    });
     console.log(`Demo: Downloading episode ${episodeGuid}`);
     
     const originalPath = await downloadAudio(originalUrl, feedHash, episodeGuid);
@@ -46,18 +44,35 @@ export async function processDemoEpisode(
     // Get actual audio duration
     const actualDuration = await getAudioDuration(originalPath);
     
-    // Update status: analyzing
-    demoStatus.set(statusKey, { status: 'analyzing', actualDuration });
+    // Initialize progress tracking
+    activeProcessing.set(statusKey, {
+      currentPosition: 0,
+      totalDuration: actualDuration
+    });
+    
+    // Update status to analyzing
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
+      status: 'analyzing',
+      file_path: originalPath
+    });
     console.log(`Demo: Analyzing episode for ads`);
     
     // Detect ads with user's credentials
-    // For now, we'll need to modify the gemini service to accept custom credentials
-    // This is a temporary solution - we'll need to refactor detectAllAdBreaks
-    const segments = await detectAllAdBreaksWithCustomClient(originalPath, apiKey, model, statusKey);
+    const customClient = new GoogleGenerativeAI(apiKey);
     
-    // Update status: processing (preserve actualDuration)
-    const currentStatus = demoStatus.get(statusKey)!;
-    demoStatus.set(statusKey, { ...currentStatus, status: 'processing' });
+    // Create generator with progress tracking
+    const segmentGenerator = detectAllAdBreaks(
+      originalPath, 
+      customClient, 
+      model,
+      (_currentChunk, _totalChunks, currentPosition) => {
+        // Update progress with exact position being analyzed
+        const progress = activeProcessing.get(statusKey);
+        if (progress) {
+          progress.currentPosition = currentPosition;
+        }
+      }
+    );
     
     // Create output directory
     const outputDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
@@ -66,57 +81,68 @@ export async function processDemoEpisode(
     // Generate output path
     const processedPath = path.join(outputDir, `${episodeGuid}.mp3`);
 
-    // Remove ads
-    const removedSegments = await removeAds(originalPath, processedPath, segments)
+    // Remove ads - pass the generator directly!
+    // This will consume the generator (triggering analysis) and remove ads in a streaming fashion
+    const removedSegments = await removeAds(originalPath, processedPath, segmentGenerator);
     
-    // Update status: completed (preserve actualDuration)
+    // Update final status
     const processingTime = Date.now() - startTime;
-    const finalStatus = demoStatus.get(statusKey)!;
-    demoStatus.set(statusKey, {
-      ...finalStatus,
-      status: 'completed',
-      segments: removedSegments,
-      processingTime
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
+      status: 'processed',
+      file_path: processedPath,
+      ad_segments: removedSegments
     });
+    
+    // Clean up progress tracking
+    activeProcessing.delete(statusKey);
     
     console.log(`Demo: Processing completed in ${secondsToTime(processingTime / 1000)}`);
     return processedPath;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    demoStatus.set(statusKey, { 
-      status: 'error', 
-      error: errorMessage 
-    });
+    // Update database with error
+    await createOrUpdateEpisode(feedHash, episodeGuid, {
+      status: 'error'
+    }).catch(() => {}); // Ignore errors updating error status
+    
+    // Clean up progress tracking
+    activeProcessing.delete(statusKey);
+    
     throw error;
   }
 }
 
-// Create custom Gemini client and detect ad breaks
-async function detectAllAdBreaksWithCustomClient(
-  audioPath: string,
-  apiKey: string,
-  model: string,
-  statusKey: string
-) {
-  // Create a custom Gemini client with user's credentials
-  const customClient = new GoogleGenerativeAI(apiKey);
-  
-  // Use the refactored function with custom client and progress callback
-  const segments = detectAllAdBreaks(audioPath, customClient, model, (currentChunk, totalChunks) => {
-    const status = demoStatus.get(statusKey);
-    if (status && status.status === 'analyzing') {
-      demoStatus.set(statusKey, {
-        ...status,
-        currentChunk,
-        totalChunks
-      });
-    }
-  });
-  
-  return segments;
-}
-
-export async function getDemoStatus(feedHash: string, episodeGuid: string): Promise<DemoStatus> {
+export async function getDemoStatus(feedHash: string, episodeGuid: string): Promise<any> {
   const key = `${feedHash}:${episodeGuid}`;
-  return demoStatus.get(key) || { status: 'pending' };
+  
+  // First check database
+  const episode = await getEpisode(feedHash, episodeGuid);
+  
+  if (episode) {
+    // Convert database status to demo status format
+    const baseStatus = {
+      status: episode.status === 'processed' ? 'completed' : episode.status,
+      segments: episode.ad_segments || [],
+      // We don't store processing time in DB, but that's ok
+      processingTime: 0
+    };
+    
+    // If actively processing, add progress info
+    const progress = activeProcessing.get(key);
+    if (progress && episode.status === 'analyzing') {
+      // Calculate progress percentage based on audio position
+      const progressPercent = progress.currentPosition / progress.totalDuration;
+      
+      return {
+        ...baseStatus,
+        currentPosition: progress.currentPosition,
+        totalDuration: progress.totalDuration,
+        progressPercent: Math.min(progressPercent * 100, 95) // Cap at 95% during analysis
+      };
+    }
+    
+    return baseStatus;
+  }
+  
+  // No database record, must be pending
+  return { status: 'pending' };
 }

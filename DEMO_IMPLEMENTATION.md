@@ -233,44 +233,59 @@ app.use(demoRouter);
 
 ## TODO List
 
-### Phase 1: Core Implementation
+### Phase 1: Core Implementation ✅
 
-- [ ] Create demo directory structure
-- [ ] Implement demo.html with basic form
-- [ ] Create demo controller with all routes
-- [ ] Implement fetchDemoFeed (reuse existing)
-- [ ] Adapt processDemoEpisode to accept custom Gemini client
-- [ ] Add status tracking system
+- [x] Create demo directory structure
+- [x] Implement demo.html with basic form
+- [x] Create demo controller with all routes
+- [x] Implement fetchDemoFeed (reuse existing)
+- [x] Adapt processDemoEpisode to accept custom Gemini client
+- [x] Add status tracking system
 
-### Phase 2: Audio Handling
+### Phase 2: Audio Handling ✅
 
-- [ ] Implement audio streaming with headers
-- [ ] Add processing locks
-- [ ] Handle original URL passing (consider header vs other method)
-- [ ] Test on-demand processing flow
+- [x] Implement audio streaming with headers
+- [x] Add processing locks
+- [x] Handle original URL passing (via header)
+- [x] Test on-demand processing flow
 
-### Phase 3: Frontend Polish
+### Phase 3: Frontend Polish ✅
 
-- [ ] Add loading states
-- [ ] Display ad segments with timestamps
-- [ ] Implement audio player with controls
-- [ ] Add error handling and display
-- [ ] Show processing time
+- [x] Add loading states
+- [x] Display ad segments with timestamps
+- [x] Implement audio player with controls
+- [x] Add error handling and display
+- [x] Show processing time (in completed badge)
 
 ### Phase 4: Refinements
 
-- [ ] Modify gemini.service.ts to accept custom client
+- [x] Modify gemini.service.ts to accept custom client
 - [ ] Add demo-specific storage path (optional)
 - [ ] Clean up old demo files periodically
-- [ ] Add instructions for getting API key
+- [x] Add instructions for getting API key
+
+### Recent Updates (2025-12-29)
+
+- [x] Processing time now shown in "Completed" badge instead of separate line
+- [x] Removed "(expected HH:MM:SS)" duration display
+- [x] Removed "RSS listed duration" display
+- [x] Process Episode button hidden for already processed episodes
+- [x] Episode status checked automatically on page load and page changes
+- [x] **Database Integration**: Demo now uses the main database for episode storage
+- [x] **Persistent Ad Segments**: Ad detection results survive server restarts
+- [x] **Improved Progress Tracking**: Progress shown as percentage based on audio position
+- [x] **Async Generator**: Uses streaming ad detection for real-time updates
+- [x] **No Credentials for Playback**: Processed episodes can be played without API key
 
 ## Key Technical Decisions
 
-1. **Original URL passing**: Need mechanism to pass from frontend through audio request
-2. **Gemini client injection**: Modify existing services to accept optional client
-3. **Status storage**: Use in-memory Map, consider file-based for persistence
-4. **Security**: Validate API key format, sanitize inputs
-5. **Cleanup**: Consider TTL for demo files
+1. **Original URL passing**: Headers used to pass URL from frontend through audio request
+2. **Gemini client injection**: Services accept optional client parameter
+3. **Status storage**: Database for persistence, in-memory only for active progress
+4. **Progress tracking**: Based on audio position (last ad end + 60s) / total duration
+5. **Async generator**: Enables real-time segment detection updates
+6. **Security**: Validate API key format, sanitize inputs
+7. **Cleanup**: Consider TTL for demo files
 
 ## Open Questions
 

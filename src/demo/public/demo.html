@@ -436,7 +436,8 @@
                     <div class="episode-controls">
                         <button onclick="processEpisode('${feedHash}', '${episode.guid}')" 
                                 id="btn-${episode.guid}"
-                                class="process-btn">
+                                class="process-btn"
+                                style="display: none;">
                             Process Episode
                         </button>
                         <span class="status" id="status-${episode.guid}"></span>
@@ -444,6 +445,9 @@
                     <div id="results-${episode.guid}"></div>
                 </div>
             `;
+            
+            // Check status immediately after creating the element
+            checkEpisodeStatus(feedHash, episode.guid);
             
             return div;
         }
@@ -475,6 +479,7 @@
             // Update UI
             updateEpisodeUI(episodeGuid, 'processing', 'Starting...');
             const btn = document.getElementById(`btn-${episodeGuid}`);
+            btn.style.display = 'none'; // Hide button when processing starts
             
             try {
                 // Trigger processing by requesting the audio
@@ -538,9 +543,11 @@
                     if (status.status === 'downloading') {
                         statusText = 'Downloading episode...';
                     } else if (status.status === 'analyzing') {
-                        statusText = 'Analyzing audio for ads...';
-                        if (status.currentChunk && status.totalChunks) {
-                            statusText += ` (chunk ${status.currentChunk}/${status.totalChunks})`;
+                        statusText = 'Analyzing audio for ads';
+                        if (status.progressPercent !== undefined) {
+                            statusText += ` (${Math.round(status.progressPercent)}%)`;
+                        } else {
+                            statusText += '...';
                         }
                     } else if (status.status === 'processing') {
                         statusText = 'Removing detected ads...';
@@ -561,7 +568,12 @@
             const response = await fetch(`/demo/status/${feedHash}/${encodeURIComponent(episodeGuid)}`);
             const status = await response.json();
             
-            updateEpisodeUI(episodeGuid, 'completed', 'Completed');
+            // Include processing time in the status message
+            let statusMessage = 'Completed';
+            if (status.processingTime) {
+                statusMessage += ` (${Math.round(status.processingTime / 1000)}s)`;
+            }
+            updateEpisodeUI(episodeGuid, 'completed', statusMessage);
             
             const resultsEl = document.getElementById(`results-${episodeGuid}`);
             let html = '';
@@ -583,65 +595,42 @@
                 html += '<div class="segments">No ads detected in this episode.</div>';
             }
             
-            if (status.processingTime) {
-                html += `<div style="font-size: 14px; color: #666; margin-top: 5px;">Processing time: ${Math.round(status.processingTime / 1000)}s</div>`;
-            }
             
             // Add audio player container
             html += `<audio controls id="audio-${episodeGuid}"></audio>`;
             
             resultsEl.innerHTML = html;
             
-            // Fetch audio with credentials and create blob URL
+            // For processed episodes, no credentials needed
             const audioUrl = `/demo/audio/${feedHash}/${encodeURIComponent(episodeGuid)}.mp3`;
-            fetchWithCredentials(audioUrl)
-                .then(response => response.blob())
-                .then(blob => {
-                    const blobUrl = URL.createObjectURL(blob);
-                    const audio = document.getElementById(`audio-${episodeGuid}`);
-                    audio.src = blobUrl;
-                    
-                    // Add duration info when audio loads
-                    audio.addEventListener('loadedmetadata', () => {
-                        const processedDuration = audio.duration;
-                        const episode = episodeData[`${feedHash}:${episodeGuid}`];
-                        
-                        // Use actual duration from server if available, otherwise fall back to RSS feed duration
-                        const originalDuration = status.actualDuration || parseDuration(episode.duration);
-                        
-                        if (originalDuration > 0 && status.segments) {
-                            // Calculate total time cut
-                            let totalCutTime = 0;
-                            status.segments.forEach(segment => {
-                                totalCutTime += (segment.end - segment.start);
-                            });
-                            
-                            const expectedDuration = originalDuration - totalCutTime;
-                            const durationInfo = document.createElement('div');
-                            durationInfo.style.cssText = 'margin-top: 10px; font-size: 14px; color: #666;';
-                            
-                            // Show both actual and expected if they differ significantly
-                            if (Math.abs(processedDuration - expectedDuration) > 5) {
-                                durationInfo.innerHTML = `Original: ${formatTime(originalDuration)} → Processed: ${formatTime(processedDuration)} (expected ${formatTime(expectedDuration)})`;
-                            } else {
-                                durationInfo.innerHTML = `Original: ${formatTime(originalDuration)} → Processed: ${formatTime(processedDuration)}`;
-                            }
-                            
-                            // Add note if RSS duration differs from actual
-                            if (episode.duration && status.actualDuration) {
-                                const rssDuration = parseDuration(episode.duration);
-                                if (Math.abs(rssDuration - status.actualDuration) > 60) {
-                                    durationInfo.innerHTML += `<br><small style="color: #999;">RSS listed duration: ${formatTime(rssDuration)}</small>`;
-                                }
-                            }
-                            
-                            audio.parentElement.insertBefore(durationInfo, audio);
-                        }
+            const audio = document.getElementById(`audio-${episodeGuid}`);
+            audio.src = audioUrl;
+            
+            // Add duration info when audio loads
+            audio.addEventListener('loadedmetadata', () => {
+                const processedDuration = audio.duration;
+                const episode = episodeData[`${feedHash}:${episodeGuid}`];
+                
+                // Use actual duration from server if available, otherwise fall back to RSS feed duration
+                const originalDuration = status.actualDuration || parseDuration(episode.duration);
+                
+                if (originalDuration > 0 && status.segments) {
+                    // Calculate total time cut
+                    let totalCutTime = 0;
+                    status.segments.forEach(segment => {
+                        totalCutTime += (segment.end - segment.start);
                     });
-                })
-                .catch(error => {
-                    console.error('Error loading audio:', error);
-                });
+                    
+                    const expectedDuration = originalDuration - totalCutTime;
+                    const durationInfo = document.createElement('div');
+                    durationInfo.style.cssText = 'margin-top: 10px; font-size: 14px; color: #666;';
+                    
+                    // Show original and processed duration
+                    durationInfo.innerHTML = `Original: ${formatTime(originalDuration)} → Processed: ${formatTime(processedDuration)}`;
+                    
+                    audio.parentElement.insertBefore(durationInfo, audio);
+                }
+            });
         }
         
         // Update episode UI
@@ -722,6 +711,31 @@
             }
             
             return 0;
+        }
+        
+        // Check episode status
+        async function checkEpisodeStatus(feedHash, episodeGuid) {
+            try {
+                const response = await fetch(`/demo/status/${feedHash}/${encodeURIComponent(episodeGuid)}`);
+                const status = await response.json();
+                
+                if (status.status === 'completed') {
+                    // Episode is already processed, display results
+                    await displayResults(feedHash, episodeGuid);
+                } else {
+                    // Show the process button for unprocessed episodes
+                    const btn = document.getElementById(`btn-${episodeGuid}`);
+                    if (btn) {
+                        btn.style.display = '';
+                    }
+                }
+            } catch (error) {
+                // If there's an error checking status, show the process button
+                const btn = document.getElementById(`btn-${episodeGuid}`);
+                if (btn) {
+                    btn.style.display = '';
+                }
+            }
         }
         
         // Show message function
