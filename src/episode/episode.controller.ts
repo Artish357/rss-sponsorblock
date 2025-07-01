@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Episode } from "../general/types";
 import { getEpisode } from "./episode.model";
-import { processEpisode } from "./episode.service";
+import { processEpisodeWithMetadata } from "./episode.service";
 
 const router = Router()
 
@@ -34,7 +34,16 @@ router.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res): Promise<void> 
     if (!processingLocks.has(lockKey) && (episode.status === 'pending' || episode.status === 'error')) {
       console.log(`Starting audio processing for: ${decodedGuid}`);
 
-      const processingPromise = processEpisode(feedHash, decodedGuid, episode.original_url);
+      // Use metadata from database if available
+      const processingPromise = processEpisodeWithMetadata(
+        feedHash, 
+        decodedGuid, 
+        episode.original_url,
+        {
+          duration: episode.clean_duration ? `${episode.clean_duration}` : undefined,
+          transcriptUrl: episode.transcript_url || undefined
+        }
+      );
 
       // Store promise in locks map
       processingLocks.set(lockKey, processingPromise);

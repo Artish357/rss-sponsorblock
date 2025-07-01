@@ -5,7 +5,7 @@ import type { Episode, AdSegment } from '../general/types.js';
 
 
 // Episode data for operations (derived from main Episode interface)
-type EpisodeData = Partial<Pick<Episode, 'original_url' | 'file_path' | 'ad_segments' | 'status'>>;
+type EpisodeData = Partial<Pick<Episode, 'original_url' | 'file_path' | 'ad_segments' | 'status' | 'clean_duration' | 'clean_duration_source' | 'transcript_url'>>;
 
 // Database row interface (matches SQL schema with JSON string for ad_segments)
 type EpisodeRow = Omit<Episode, 'ad_segments'> & {

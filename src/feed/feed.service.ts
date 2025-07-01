@@ -45,7 +45,8 @@ export const fetchFeed = async (url: string): Promise<RSSFeed> => {
         description: item.description?.[0] || '',
         pubDate: item.pubDate?.[0] || '',
         duration: item['itunes:duration']?.[0] || '',
-        artwork: item['itunes:image']?.[0]?.$.href || channel['itunes:image']?.[0]?.$.href || ''
+        artwork: item['itunes:image']?.[0]?.$.href || channel['itunes:image']?.[0]?.$.href || '',
+        transcriptUrl: item['podcast:transcript']?.[0]?.$.url || ''
       };
     }).filter(Boolean) as RSSEpisode[]; // Remove null entries
 

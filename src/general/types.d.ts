@@ -8,11 +8,15 @@ export interface Episode {
   ad_segments: AdSegment[] | null;
   status: EpisodeStatus;
   processed_at: string;
+  clean_duration?: number | null;
+  clean_duration_source?: string | null;
+  transcript_url?: string | null;
 }
 
 export interface AdSegment {
   start: number;
   end: number;
+  confidence?: number;
 }
 
 export type EpisodeStatus = 'pending' | 'downloading' | 'analyzing' | 'processing' | 'processed' | 'error';
@@ -33,6 +37,7 @@ export interface RSSEpisode {
   pubDate: string;
   duration?: string;
   artwork?: string;
+  transcriptUrl?: string;
 }
 
 export interface ProcessingResult {

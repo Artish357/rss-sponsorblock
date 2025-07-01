@@ -3,19 +3,21 @@ import { downloadAudio, getExistingAudioPath } from './download.service';
 import { getEpisode, createOrUpdateEpisode } from './episode.model';
 import path from 'path';
 import { mkdirSync } from 'fs';
-import type { AdSegment, Episode } from '../general/types';
-import { detectAllAdBreaks } from '../adDetection/gemini.service';
+import type { Episode, RSSEpisode } from '../general/types';
 import { removeAds } from '../trimming/trimming.service';
+import { processWithValidation } from '../adDetection/validation.service';
+import { parseItunesDuration } from '../adDetection/cleanDuration.service';
 
 type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_url'>
 
 /**
- * Process a single episode through the full pipeline
+ * Process a single episode through the full pipeline with validation
  */
-export const processEpisode = async (
+export const processEpisodeWithMetadata = async (
   feedHash: string, 
   episodeGuid: string, 
-  originalUrl: string
+  originalUrl: string,
+  episodeMetadata?: Partial<RSSEpisode>
 ): Promise<Episode> => {
   console.log(`Starting processing for episode: ${episodeGuid}`);
 
@@ -27,8 +29,18 @@ export const processEpisode = async (
       return existing;
     }
 
-    // Update status to downloading
-    await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'downloading' });
+    // Extract clean duration info if available
+    const cleanDuration = episodeMetadata?.duration ? 
+      parseItunesDuration(episodeMetadata.duration) : null;
+    const transcriptUrl = episodeMetadata?.transcriptUrl || null;
+
+    // Update episode with metadata
+    await createOrUpdateEpisode(feedHash, episodeGuid, { 
+      status: 'downloading',
+      clean_duration: cleanDuration,
+      clean_duration_source: cleanDuration ? 'rss' : null,
+      transcript_url: transcriptUrl
+    });
 
     // Step 1: Download audio if not already downloaded
     let audioPath = getExistingAudioPath(feedHash, episodeGuid);
@@ -42,27 +54,35 @@ export const processEpisode = async (
     // Update status to analyzing
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'analyzing' });
 
-    // Step 2: Detect ad breaks using iterative chunking approach
-    console.log('Detecting ad breaks...');
-    const adBreaks: AdSegment[] = []
-    for await (const adBreak of detectAllAdBreaks(audioPath)) {
-      adBreaks.push(adBreak)
-    }
+    // Step 2: Detect ad breaks with validation
+    console.log('Detecting ad breaks with validation...');
+    const validationResult = await processWithValidation(
+      audioPath,
+      {
+        duration: episodeMetadata?.duration,
+        transcriptUrl: episodeMetadata?.transcriptUrl
+      }
+    );
 
-    console.log(`Found ${adBreaks.length} ad breaks`);
+    const adBreaks = validationResult.segments;
+    console.log(`Found ${adBreaks.length} ad breaks after validation`);
 
     // Update status to processing
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'processing' });
 
-    // Step 3: Remove ads using FFmpeg
-    console.log('Removing advertisements...');
-    const processedDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
-    mkdirSync(processedDir, { recursive: true });
-
-    const outputPath = path.join(processedDir, `${episodeGuid}.mp3`);
-
-    // Ad breaks are already in the correct format for removeAds
-    await removeAds(audioPath, outputPath, adBreaks);
+    // Step 3: Remove ads using FFmpeg (if any detected)
+    let outputPath: string;
+    
+    if (adBreaks.length > 0) {
+      console.log('Removing advertisements...');
+      const processedDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
+      mkdirSync(processedDir, { recursive: true });
+      outputPath = path.join(processedDir, `${episodeGuid}.mp3`);
+      await removeAds(audioPath, outputPath, adBreaks);
+    } else {
+      console.log('No ads to remove - using original audio');
+      outputPath = audioPath;
+    }
 
     // Step 4: Save results
     await createOrUpdateEpisode(feedHash, episodeGuid, {
@@ -90,17 +110,30 @@ export const processEpisode = async (
 };
 
 /**
- * Process multiple episodes in sequence
+ * Process a single episode through the full pipeline (legacy)
  */
-export const processBacklog = async (
-  episodes: ProcessingEpisode[]
+export const processEpisode = async (
+  feedHash: string, 
+  episodeGuid: string, 
+  originalUrl: string
+): Promise<Episode> => {
+  // Delegate to new function without metadata
+  return processEpisodeWithMetadata(feedHash, episodeGuid, originalUrl);
+};
+
+/**
+ * Process multiple episodes in sequence with metadata
+ */
+export const processBacklogWithMetadata = async (
+  episodes: Array<ProcessingEpisode & { metadata?: Partial<RSSEpisode> }>
 ) => {
   const results = await Promise.all(episodes.map(async episode => {
     try {
-      const result = await processEpisode(
+      const result = await processEpisodeWithMetadata(
         episode.feed_hash,
         episode.episode_guid,
-        episode.original_url
+        episode.original_url,
+        episode.metadata
       );
       return result;
     } catch (error) {
@@ -110,4 +143,13 @@ export const processBacklog = async (
   }));
 
   return results;
+};
+
+/**
+ * Process multiple episodes in sequence (legacy)
+ */
+export const processBacklog = async (
+  episodes: ProcessingEpisode[]
+) => {
+  return processBacklogWithMetadata(episodes);
 };
