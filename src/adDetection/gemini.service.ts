@@ -95,7 +95,7 @@ export async function* detectAllAdBreaks (
   let currentPosition = 0; // seconds
   
   // Calculate total chunks upfront based on initial duration
-  const CHUNK_SIZE = 1800; // 30 minutes
+  const CHUNK_SIZE = parseInt(process.env.AD_CHUNK_DURATION_SECONDS || '1800', 10);
   const totalChunks = Math.ceil(duration / CHUNK_SIZE);
   let currentChunk = 0;
 

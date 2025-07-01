@@ -6,6 +6,9 @@ import { detectAllAdBreaks } from './gemini.service';
 import { verifySegmentsByLength } from './verification';
 import { getCleanDuration, CleanDurationSource } from './cleanDuration.service';
 
+// Configuration from environment
+const DURATION_TOLERANCE = parseInt(process.env.AD_DURATION_TOLERANCE_SECONDS || '30', 10);
+
 export interface ValidationResult {
   segments: AdSegment[];
   validation?: {
@@ -46,7 +49,7 @@ export async function processWithValidation(
   
   // If no clean duration available, return without validation
   if (!cleanDurationSource) {
-    console.log('No clean duration source available, skipping validation');
+    console.log('[Validation] No clean duration source available, skipping validation');
     return { segments: detectedAds };
   }
   
@@ -76,21 +79,24 @@ async function validateAndRefine(
 ): Promise<ValidationResult> {
   const cleanDuration = cleanDurationSource.value;
   
+  
   // Calculate total ad time and resulting duration
   const totalAdTime = detectedAds.reduce((sum, ad) => sum + (ad.end - ad.start), 0);
   const resultingDuration = actualDuration - totalAdTime;
   const discrepancy = resultingDuration - cleanDuration;
   
-  console.log(`Validation check:
-    Clean duration: ${cleanDuration}s (${cleanDurationSource.type})
-    Actual duration: ${actualDuration}s
-    Total ads detected: ${totalAdTime}s
-    Resulting duration: ${resultingDuration}s
-    Discrepancy: ${discrepancy}s`);
+  console.log('[Validation] Check:', JSON.stringify({
+    cleanDuration,
+    cleanDurationSource: cleanDurationSource.type,
+    actualDuration,
+    totalAdTime,
+    resultingDuration,
+    discrepancy
+  }, null, 2));
   
   // Check if validation is needed
-  if (Math.abs(discrepancy) <= 30) {
-    console.log('Duration validation passed - within 30s tolerance');
+  if (Math.abs(discrepancy) <= DURATION_TOLERANCE) {
+    console.log(`[Validation] Duration validation passed - within ${DURATION_TOLERANCE}s tolerance`);
     return {
       segments: detectedAds,
       validation: {
@@ -105,9 +111,9 @@ async function validateAndRefine(
     };
   }
   
-  if (discrepancy > 30) {
+  if (discrepancy > DURATION_TOLERANCE) {
     // Removing too much content - likely false positives
-    console.log(`Removing ${discrepancy}s too much content - verifying segments`);
+    console.log(`[Validation] WARNING: Removing ${discrepancy}s too much content - verifying segments (${detectedAds.length} segments)`);
     
     const verifiedAds = await verifySegmentsByLength(
       audioPath,
@@ -123,15 +129,16 @@ async function validateAndRefine(
     const newResultingDuration = actualDuration - newTotalAdTime;
     const newDiscrepancy = newResultingDuration - cleanDuration;
     
-    console.log(`After verification:
-      Original segments: ${detectedAds.length}
-      Verified segments: ${verifiedAds.length}
-      New discrepancy: ${newDiscrepancy}s`);
+    console.log('[Validation] Verification complete:', JSON.stringify({
+      originalSegments: detectedAds.length,
+      verifiedSegments: verifiedAds.length,
+      newDiscrepancy
+    }, null, 2));
     
     // Check if verification improved the situation
-    if (newDiscrepancy < -30) {
+    if (newDiscrepancy > DURATION_TOLERANCE) {
       // Still removing too much - use original audio
-      console.log('Verification still removes too much content - using original audio');
+      console.log(`[Validation] WARNING: Verification still removes too much content (${newDiscrepancy}s) - using original audio`);
       return {
         segments: [],
         validation: {
@@ -160,9 +167,9 @@ async function validateAndRefine(
     };
   }
   
-  // Not removing enough (discrepancy < -30)
+  // Not removing enough (discrepancy < -${DURATION_TOLERANCE})
   // This is acceptable - better to leave some ads than remove content
-  console.log(`Not removing enough content (${Math.abs(discrepancy)}s of ads remain) - acceptable`);
+  console.log(`[Validation] Not removing enough content (${Math.abs(discrepancy)}s of ads remain) - acceptable`);
   return {
     segments: detectedAds,
     validation: {

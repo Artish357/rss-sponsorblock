@@ -1,6 +1,4 @@
-import { Knex } from 'knex';
-
-export async function up(knex: Knex): Promise<void> {
+export async function up(knex) {
   await knex.schema.alterTable('episodes', (table) => {
     table.integer('clean_duration');
     table.text('clean_duration_source');
@@ -8,7 +6,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 }
 
-export async function down(knex: Knex): Promise<void> {
+export async function down(knex) {
   await knex.schema.alterTable('episodes', (table) => {
     table.dropColumn('clean_duration');
     table.dropColumn('clean_duration_source');

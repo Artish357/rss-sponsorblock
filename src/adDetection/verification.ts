@@ -7,6 +7,11 @@ import { extractAudioChunk } from '../trimming/trimming.service';
 import { timeToSeconds, secondsToTime } from '../general/timeHelpers';
 import { adBreakVerificationPrompt, adBreakVerificationSchema } from './prompts/verification';
 
+// Configuration from environment
+const CONTEXT_PADDING = parseInt(process.env.AD_CONTEXT_PADDING_SECONDS || '30', 10);
+const CHUNK_DURATION = parseInt(process.env.AD_CHUNK_DURATION_SECONDS || '1800', 10);
+const DURATION_TOLERANCE = parseInt(process.env.AD_DURATION_TOLERANCE_SECONDS || '30', 10);
+
 interface ChunkBoundaries {
   start: number;
   end: number;
@@ -20,9 +25,9 @@ export function calculateVerificationChunk(
   segment: AdSegment,
   allSegments: AdSegment[],
   audioDuration: number,
-  maxChunkDuration: number = 1800 // 30 minutes
+  maxChunkDuration: number = CHUNK_DURATION
 ): ChunkBoundaries {
-  const CONTEXT_PADDING = 30; // seconds before/after for context
+  // Use configured context padding from environment
   
   // Start with ideal boundaries (segment + padding)
   let chunkStart = Math.max(0, segment.start - CONTEXT_PADDING);
@@ -188,12 +193,17 @@ export async function verifySegmentsByLength(
   let currentTotalAdTime = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
   let resultingDuration = audioDuration - currentTotalAdTime;
   
-  console.log(`Starting verification: target duration ${targetDuration}s, current ${resultingDuration}s`);
+  console.log('[Verification] Starting:', JSON.stringify({
+    targetDuration,
+    currentDuration: resultingDuration,
+    segmentCount: segments.length,
+    totalAdTime: currentTotalAdTime
+  }, null, 2));
   
   for (const segment of sortedByDuration) {
     // Check if we've reached acceptable duration
-    if (resultingDuration >= targetDuration - 30) {
-      console.log(`Acceptable duration reached: ${resultingDuration}s`);
+    if (resultingDuration >= targetDuration - DURATION_TOLERANCE) {
+      console.log(`[Verification] Acceptable duration reached: ${resultingDuration}s (target: ${targetDuration}s ± ${DURATION_TOLERANCE}s)`);
       // Add remaining segments that weren't checked
       const remainingSegments = segments.filter(s => 
         !verifiedSegments.some(v => v.start === s.start && v.end === s.end) &&

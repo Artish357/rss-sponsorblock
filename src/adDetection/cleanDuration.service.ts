@@ -110,7 +110,7 @@ export function extractFromJSON(content: string): number | null {
     
     return null;
   } catch (error) {
-    console.error('Error parsing JSON transcript:', error);
+    console.error('[CleanDuration] Error parsing JSON transcript:', error);
     return null;
   }
 }
@@ -125,7 +125,7 @@ export async function extractCleanRuntimeFromTranscript(
   try {
     const response = await fetch(transcriptUrl);
     if (!response.ok) {
-      console.error(`Failed to fetch transcript: ${response.status}`);
+      console.error(`[CleanDuration] Failed to fetch transcript: HTTP ${response.status} for ${transcriptUrl}`);
       return null;
     }
     
@@ -143,11 +143,11 @@ export async function extractCleanRuntimeFromTranscript(
       case 'json':
         return extractFromJSON(content);
       default:
-        console.error(`Unknown transcript type: ${type}`);
+        console.error(`[CleanDuration] Unknown transcript type: ${type}`);
         return null;
     }
   } catch (error) {
-    console.error('Error fetching transcript:', error);
+    console.error('[CleanDuration] Error fetching transcript:', error, 'URL:', transcriptUrl);
     return null;
   }
 }
