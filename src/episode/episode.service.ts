@@ -13,7 +13,7 @@ type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_
 /**
  * Process a single episode through the full pipeline with validation
  */
-export const processEpisodeWithMetadata = async (
+export const processEpisode = async (
   feedHash: string, 
   episodeGuid: string, 
   originalUrl: string,
@@ -58,10 +58,8 @@ export const processEpisodeWithMetadata = async (
     console.log('Detecting ad breaks with validation...');
     const validationResult = await processWithValidation(
       audioPath,
-      {
-        duration: episodeMetadata?.duration,
-        transcriptUrl: episodeMetadata?.transcriptUrl
-      }
+      undefined,
+      undefined
     );
 
     const adBreaks = validationResult.segments;
@@ -110,26 +108,14 @@ export const processEpisodeWithMetadata = async (
 };
 
 /**
- * Process a single episode through the full pipeline (legacy)
- */
-export const processEpisode = async (
-  feedHash: string, 
-  episodeGuid: string, 
-  originalUrl: string
-): Promise<Episode> => {
-  // Delegate to new function without metadata
-  return processEpisodeWithMetadata(feedHash, episodeGuid, originalUrl);
-};
-
-/**
  * Process multiple episodes in sequence with metadata
  */
-export const processBacklogWithMetadata = async (
+export const processBacklog = async (
   episodes: Array<ProcessingEpisode & { metadata?: Partial<RSSEpisode> }>
 ) => {
   const results = await Promise.all(episodes.map(async episode => {
     try {
-      const result = await processEpisodeWithMetadata(
+      const result = await processEpisode(
         episode.feed_hash,
         episode.episode_guid,
         episode.original_url,
@@ -143,13 +129,4 @@ export const processBacklogWithMetadata = async (
   }));
 
   return results;
-};
-
-/**
- * Process multiple episodes in sequence (legacy)
- */
-export const processBacklog = async (
-  episodes: ProcessingEpisode[]
-) => {
-  return processBacklogWithMetadata(episodes);
 };

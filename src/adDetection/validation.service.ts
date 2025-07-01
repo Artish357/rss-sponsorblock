@@ -4,7 +4,7 @@ import { AdSegment } from '../general/types';
 import { getAudioDuration } from '../trimming/trimming.service';
 import { detectAllAdBreaks } from './gemini.service';
 import { verifySegmentsByLength } from './verification';
-import { getCleanDuration, CleanDurationSource } from './cleanDuration.service';
+import { CleanDurationSource } from './cleanDuration.service';
 
 // Configuration from environment
 const DURATION_TOLERANCE = parseInt(process.env.AD_DURATION_TOLERANCE_SECONDS || '30', 10);
@@ -27,20 +27,15 @@ export interface ValidationResult {
  */
 export async function processWithValidation(
   audioPath: string,
-  episode: {
-    duration?: string;
-    transcriptUrl?: string;
-  },
+  cleanDuration?: number,
+  cleanDurationSource?: CleanDurationSource,
   customClient?: GoogleGenerativeAI,
   customModel?: string,
   onProgress?: (currentChunk: number, totalChunks: number, currentPosition: number) => void
 ): Promise<ValidationResult> {
   // Get actual duration of downloaded audio
   const actualDuration = await getAudioDuration(audioPath);
-  
-  // Get clean duration if available
-  const cleanDurationSource = await getCleanDuration(episode);
-  
+
   // Run normal ad detection
   const detectedAds: AdSegment[] = [];
   for await (const ad of detectAllAdBreaks(audioPath, customClient, customModel, onProgress)) {
@@ -48,7 +43,7 @@ export async function processWithValidation(
   }
   
   // If no clean duration available, return without validation
-  if (!cleanDurationSource) {
+  if (!cleanDurationSource || !cleanDuration) {
     console.log('[Validation] No clean duration source available, skipping validation');
     return { segments: detectedAds };
   }
@@ -66,6 +61,13 @@ export async function processWithValidation(
   return validationResult;
 }
 
+function calculateDiscrepancy(adSegments: AdSegment[], actualDuration: number, cleanDuration: number) {
+  // Calculate total ad time and resulting duration
+  const totalAdTime = adSegments.reduce((sum, ad) => sum + (ad.end - ad.start), 0);
+  const resultingDuration = actualDuration - totalAdTime;
+  return cleanDuration - resultingDuration;
+}
+
 /**
  * Validate detected segments against clean duration and refine if needed
  */
@@ -78,24 +80,17 @@ async function validateAndRefine(
   customModel?: string
 ): Promise<ValidationResult> {
   const cleanDuration = cleanDurationSource.value;
-  
-  
-  // Calculate total ad time and resulting duration
-  const totalAdTime = detectedAds.reduce((sum, ad) => sum + (ad.end - ad.start), 0);
-  const resultingDuration = actualDuration - totalAdTime;
-  const discrepancy = resultingDuration - cleanDuration;
+  const discrepancy = calculateDiscrepancy(detectedAds, actualDuration, cleanDuration);
   
   console.log('[Validation] Check:', JSON.stringify({
     cleanDuration,
     cleanDurationSource: cleanDurationSource.type,
     actualDuration,
-    totalAdTime,
-    resultingDuration,
     discrepancy
   }, null, 2));
   
   // Check if validation is needed
-  if (Math.abs(discrepancy) <= DURATION_TOLERANCE) {
+  if (discrepancy <= DURATION_TOLERANCE) {
     console.log(`[Validation] Duration validation passed - within ${DURATION_TOLERANCE}s tolerance`);
     return {
       segments: detectedAds,
@@ -123,11 +118,7 @@ async function validateAndRefine(
       customClient,
       customModel
     );
-    
-    // Recalculate with verified segments
-    const newTotalAdTime = verifiedAds.reduce((sum, ad) => sum + (ad.end - ad.start), 0);
-    const newResultingDuration = actualDuration - newTotalAdTime;
-    const newDiscrepancy = newResultingDuration - cleanDuration;
+    const newDiscrepancy = calculateDiscrepancy(verifiedAds, actualDuration, cleanDuration);
     
     console.log('[Validation] Verification complete:', JSON.stringify({
       originalSegments: detectedAds.length,
@@ -167,7 +158,7 @@ async function validateAndRefine(
     };
   }
   
-  // Not removing enough (discrepancy < -${DURATION_TOLERANCE})
+  // Not removing enough
   // This is acceptable - better to leave some ads than remove content
   console.log(`[Validation] Not removing enough content (${Math.abs(discrepancy)}s of ads remain) - acceptable`);
   return {

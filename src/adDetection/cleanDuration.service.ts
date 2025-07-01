@@ -3,7 +3,6 @@
 export interface CleanDurationSource {
   type: 'rss' | 'transcript' | 'chapters';
   value: number; // duration in seconds
-  confidence: number; // 0.0-1.0
 }
 
 /**
@@ -182,8 +181,7 @@ export async function getCleanDuration(episode: {
     if (duration) {
       return {
         type: 'rss',
-        value: duration,
-        confidence: 0.8
+        value: duration
       };
     }
   }
@@ -194,8 +192,7 @@ export async function getCleanDuration(episode: {
     if (duration) {
       return {
         type: 'transcript',
-        value: duration,
-        confidence: 0.95
+        value: duration
       };
     }
   }

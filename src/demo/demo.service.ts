@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fetchFeed } from '../feed/feed.service';
 import { downloadAudio } from '../episode/download.service';
-import { detectAllAdBreaks } from '../adDetection/gemini.service';
 import { removeAds, getAudioDuration } from '../trimming/trimming.service';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import { secondsToTime } from '../general/timeHelpers';
 import { createOrUpdateEpisode, getEpisode } from '../episode/episode.model';
+import { processWithValidation } from '../adDetection';
 
 // In-memory storage for active processing progress only
 const activeProcessing = new Map<string, ProcessingProgress>();
@@ -60,10 +60,10 @@ export async function processDemoEpisode(
     // Detect ads with user's credentials
     const customClient = new GoogleGenerativeAI(apiKey);
     
-    // Create generator with progress tracking
-    const segmentGenerator = detectAllAdBreaks(
-      originalPath, 
-      customClient, 
+    const validationResult = await processWithValidation(
+      originalPath,
+      undefined, undefined,
+      customClient,
       model,
       (_currentChunk, _totalChunks, currentPosition) => {
         // Update progress with exact position being analyzed
@@ -72,7 +72,7 @@ export async function processDemoEpisode(
           progress.currentPosition = currentPosition;
         }
       }
-    );
+    )
     
     // Create output directory
     const outputDir = path.join(process.env.STORAGE_DIR || './storage', 'audio', feedHash, 'processed');
@@ -83,7 +83,7 @@ export async function processDemoEpisode(
 
     // Remove ads - pass the generator directly!
     // This will consume the generator (triggering analysis) and remove ads in a streaming fashion
-    const removedSegments = await removeAds(originalPath, processedPath, segmentGenerator);
+    const removedSegments = await removeAds(originalPath, processedPath, validationResult.segments);
     
     // Update final status
     const processingTime = Date.now() - startTime;

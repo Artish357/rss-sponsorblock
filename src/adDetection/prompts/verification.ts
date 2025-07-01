@@ -6,7 +6,7 @@ You previously detected an ad break at {{START}}-{{END}} in this audio segment.
 Now verify if this is truly an advertisement and refine the timestamps if needed.
 
 Listen carefully for:
-1. Exact moment when ad content begins (not just the transition)
+1. Exact moment when ad content begins
 2. Exact moment when regular content resumes
 3. Whether this is actually an ad or just sounds like one
 
