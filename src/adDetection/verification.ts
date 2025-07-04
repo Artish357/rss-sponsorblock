@@ -5,7 +5,7 @@ import { unlink } from 'fs/promises';
 import { AdSegment } from '../general/types';
 import { extractAudioChunk } from '../trimming/trimming.service';
 import { timeToSeconds, secondsToTime } from '../general/timeHelpers';
-import { adBreakVerificationPrompt, adBreakVerificationSchema } from './prompts/verification';
+import { firstAdBreakPrompt, firstAdBreakSchema } from './prompt';
 
 // Configuration from environment
 const CONTEXT_PADDING = parseInt(process.env.AD_CONTEXT_PADDING_SECONDS || '30', 10);
@@ -114,14 +114,9 @@ export async function verifyAdBreak(
       model: modelName,
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: adBreakVerificationSchema
+        responseSchema: firstAdBreakSchema
       }
     });
-    
-    // Inject relative timestamps into prompt
-    const prompt = adBreakVerificationPrompt
-      .replace('{{START}}', secondsToTime(relativeStart))
-      .replace('{{END}}', secondsToTime(relativeEnd));
     
     console.log(`Verifying segment ${segment.start}-${segment.end}s as ${secondsToTime(relativeStart)}-${secondsToTime(relativeEnd)} in chunk`);
     
@@ -129,7 +124,7 @@ export async function verifyAdBreak(
     const base64Audio = audioData.toString('base64');
     
     const result = await model.generateContent([
-      { text: prompt },
+      { text: firstAdBreakPrompt },
       {
         inlineData: {
           mimeType: 'audio/mpeg',
@@ -138,7 +133,7 @@ export async function verifyAdBreak(
       },
     ]);
     
-    const parsed = JSON.parse(result.response.text()).verified_ad_break;
+    const parsed = JSON.parse(result.response.text()).ad_break;
     
     if (!parsed) {
       console.log(`Verification rejected ad at ${segment.start}-${segment.end}: Not an advertisement`);
@@ -163,8 +158,6 @@ export async function verifyAdBreak(
         `(start ${startDiff > 0 ? '+' : ''}${startDiff}s, end ${endDiff > 0 ? '+' : ''}${endDiff}s)`
       );
     }
-    
-    console.log(`Verification reason: ${parsed.adjustment_reason}`);
     
     return verifiedSegment;
     
