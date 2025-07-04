@@ -8,8 +8,6 @@ export interface Episode {
   ad_segments: AdSegment[] | null;
   status: EpisodeStatus;
   processed_at: string;
-  clean_duration?: number | null;
-  clean_duration_source?: string | null;
   transcript_url?: string | null;
 }
 
@@ -62,4 +60,21 @@ export interface DatabaseConfig {
     directory: string;
   };
   useNullAsDefault: boolean;
+}
+
+export interface Feed {
+  feed_hash: string;
+  feed_url: string;
+  title: string | null;
+  description: string | null;
+  raw_xml: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeedData {
+  feed_url: string;
+  title?: string | null;
+  description?: string | null;
+  raw_xml?: string | null;
 }

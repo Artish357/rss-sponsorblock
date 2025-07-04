@@ -2,6 +2,8 @@
 import { createHash } from 'crypto';
 import xml2js from 'xml2js';
 import type { RSSFeed, RSSEpisode } from '../general/types.js';
+import { createOrUpdateFeed, getFeed } from './feed.model.js';
+import { parseItunesDuration } from '../adDetection/cleanDuration.service.js';
 
 export const generateAudioUrl = (feedHash: string, episodeGuid: string, baseUrl: string): string => {
   // Clean episode GUID to ensure URL-safe format
@@ -50,13 +52,23 @@ export const fetchFeed = async (url: string): Promise<RSSFeed> => {
       };
     }).filter(Boolean) as RSSEpisode[]; // Remove null entries
 
-    return {
+    const feedData = {
       feedHash,
       title: channel.title?.[0] || '',
       description: channel.description?.[0] || '',
       episodes,
       originalXml: xmlData
     };
+
+    // Store feed in database
+    await createOrUpdateFeed(feedHash, {
+      feed_url: url,
+      title: feedData.title,
+      description: feedData.description,
+      raw_xml: xmlData
+    });
+
+    return feedData;
   } catch (error) {
     throw new Error(`Failed to fetch RSS feed: ${(error as Error).message}`);
   }
@@ -126,4 +138,41 @@ export async function stripOutSelfLinks(xml: string) {
   });
   delete channel['itunes:new-feed-url'];
   return builder.buildObject(parsedXml);
+}
+
+export async function getEpisodeCleanDurationFromFeed(feedHash: string, episodeGuid: string): Promise<number | null> {
+  try {
+    // Get feed from database
+    const feed = await getFeed(feedHash);
+    if (!feed || !feed.raw_xml) {
+      return null;
+    }
+
+    // Parse the XML
+    const parser = new xml2js.Parser();
+    const parsedXml = await parser.parseStringPromise(feed.raw_xml);
+    
+    // Find the episode
+    const channel = parsedXml.rss?.channel?.[0];
+    if (!channel || !channel.item) {
+      return null;
+    }
+
+    // Look for the episode by GUID
+    for (const item of channel.item) {
+      const itemGuid = item.guid?.[0]?._ || item.guid?.[0] || '';
+      if (itemGuid === episodeGuid) {
+        // Extract duration
+        const duration = item['itunes:duration']?.[0];
+        if (duration) {
+          return parseItunesDuration(duration);
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting clean duration from feed:', error);
+    return null;
+  }
 } 

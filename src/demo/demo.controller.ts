@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { fetchDemoFeed, processDemoEpisode, getDemoStatus } from './demo.service';
+import { processDemoEpisode, getDemoStatus } from './demo.service';
+import { fetchFeed, getEpisodeCleanDurationFromFeed } from '../feed/feed.service';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,11 +27,11 @@ router.post('/demo/feed', async (req: Request, res: Response) => {
   }
   
   try {
-    const feed = await fetchDemoFeed(feedUrl);
+    const feed = await fetchFeed(feedUrl);
     res.json({
       feedHash: feed.feedHash,
       title: feed.title,
-      episodes: feed.episodes.map(ep => ({
+      episodes: feed.episodes.map((ep: any) => ({
         guid: ep.guid,
         title: ep.title,
         audioUrl: ep.audioUrl,
@@ -86,12 +87,15 @@ router.get('/demo/audio/:feedHash/:episodeGuid.mp3', async (req: Request, res: R
     res.status(400).json({ error: 'Original URL required for processing' });
     return;
   }
+
+  // Get clean duration from feed before processing
+  const cleanDurationFromFeed = await getEpisodeCleanDurationFromFeed(feedHash, decodedGuid);
   
   // Process with lock
   console.log(`Starting demo processing for: ${decodedGuid}`);
   activeKeys.add(apiKey);
   
-  const promise = processDemoEpisode(feedHash, decodedGuid, originalUrl, apiKey, model);
+  const promise = processDemoEpisode(feedHash, decodedGuid, originalUrl, apiKey, model, cleanDurationFromFeed);
   processingLocks.set(lockKey, promise);
   
   promise.finally(() => {

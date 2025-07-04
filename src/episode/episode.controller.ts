@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Episode } from "../general/types";
 import { getEpisode } from "./episode.model";
 import { processEpisode } from "./episode.service";
+import { getEpisodeCleanDurationFromFeed } from "../feed/feed.service";
 
 const router = Router()
 
@@ -23,6 +24,13 @@ router.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res): Promise<void> 
       return;
     }
 
+    // Get clean duration from feed XML
+    const cleanDurationFromFeed = await getEpisodeCleanDurationFromFeed(feedHash, decodedGuid);
+    const cleanDurationSource = cleanDurationFromFeed ? {
+      type: 'rss' as const,
+      value: cleanDurationFromFeed
+    } : undefined;
+
     // If already processed, serve the file
     if (episode.status === 'processed' && episode.file_path) {
       console.log(`Serving processed audio: ${episode.file_path}`);
@@ -34,15 +42,11 @@ router.get('/audio/:feedHash/:episodeGuid.mp3', async (req, res): Promise<void> 
     if (!processingLocks.has(lockKey) && (episode.status === 'pending' || episode.status === 'error')) {
       console.log(`Starting audio processing for: ${decodedGuid}`);
 
-      // Use metadata from database if available
       const processingPromise = processEpisode(
         feedHash, 
         decodedGuid, 
         episode.original_url,
-        {
-          duration: episode.clean_duration ? `${episode.clean_duration}` : undefined,
-          transcriptUrl: episode.transcript_url || undefined
-        }
+        cleanDurationSource
       );
 
       // Store promise in locks map

@@ -6,7 +6,8 @@ import { mkdirSync } from 'fs';
 import type { Episode, RSSEpisode } from '../general/types';
 import { removeAds } from '../trimming/trimming.service';
 import { processWithValidation } from '../adDetection/validation.service';
-import { parseItunesDuration } from '../adDetection/cleanDuration.service';
+import { CleanDurationSource, parseItunesDuration } from '../adDetection/cleanDuration.service';
+import { getEpisodeCleanDurationFromFeed } from '../feed/feed.service';
 
 type ProcessingEpisode = Pick<Episode, 'episode_guid' | 'feed_hash' | 'original_url'>
 
@@ -17,7 +18,7 @@ export const processEpisode = async (
   feedHash: string, 
   episodeGuid: string, 
   originalUrl: string,
-  episodeMetadata?: Partial<RSSEpisode>
+  cleanDuration?: CleanDurationSource
 ): Promise<Episode> => {
   console.log(`Starting processing for episode: ${episodeGuid}`);
 
@@ -29,17 +30,9 @@ export const processEpisode = async (
       return existing;
     }
 
-    // Extract clean duration info if available
-    const cleanDuration = episodeMetadata?.duration ? 
-      parseItunesDuration(episodeMetadata.duration) : null;
-    const transcriptUrl = episodeMetadata?.transcriptUrl || null;
-
     // Update episode with metadata
     await createOrUpdateEpisode(feedHash, episodeGuid, { 
-      status: 'downloading',
-      clean_duration: cleanDuration,
-      clean_duration_source: cleanDuration ? 'rss' : null,
-      transcript_url: transcriptUrl
+      status: 'downloading'
     });
 
     // Step 1: Download audio if not already downloaded
@@ -54,12 +47,24 @@ export const processEpisode = async (
     // Update status to analyzing
     await createOrUpdateEpisode(feedHash, episodeGuid, { status: 'analyzing' });
 
+    // Fetch clean duration from feed XML if not provided
+    let effectiveCleanDuration = cleanDuration;
+    if (!effectiveCleanDuration) {
+      const durationFromFeed = await getEpisodeCleanDurationFromFeed(feedHash, episodeGuid);
+      if (durationFromFeed) {
+        effectiveCleanDuration = {
+          type: 'rss',
+          value: durationFromFeed
+        };
+      }
+    }
+
     // Step 2: Detect ad breaks with validation
     console.log('Detecting ad breaks with validation...');
     const validationResult = await processWithValidation(
       audioPath,
-      undefined,
-      undefined
+      effectiveCleanDuration?.value,
+      effectiveCleanDuration
     );
 
     const adBreaks = validationResult.segments;
@@ -115,11 +120,23 @@ export const processBacklog = async (
 ) => {
   const results = await Promise.all(episodes.map(async episode => {
     try {
+      // Convert metadata to CleanDurationSource if duration is available
+      let cleanDurationSource: CleanDurationSource | undefined;
+      if (episode.metadata?.duration) {
+        const parsedDuration = parseItunesDuration(episode.metadata.duration);
+        if (parsedDuration) {
+          cleanDurationSource = {
+            type: 'rss',
+            value: parsedDuration
+          };
+        }
+      }
+      
       const result = await processEpisode(
         episode.feed_hash,
         episode.episode_guid,
         episode.original_url,
-        episode.metadata
+        cleanDurationSource
       );
       return result;
     } catch (error) {

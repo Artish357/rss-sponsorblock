@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { fetchFeed } from '../feed/feed.service';
 import { downloadAudio } from '../episode/download.service';
 import { removeAds, getAudioDuration } from '../trimming/trimming.service';
 import { mkdirSync } from 'fs';
@@ -17,16 +16,13 @@ interface ProcessingProgress {
   lastAdEnd?: number;      // End position of last detected ad
 }
 
-export async function fetchDemoFeed(url: string) {
-  return await fetchFeed(url);
-}
-
 export async function processDemoEpisode(
   feedHash: string, 
   episodeGuid: string,
   originalUrl: string,
   apiKey: string,
-  model: string
+  model: string,
+  cleanDurationFromFeed: number | null
 ): Promise<string> {
   const statusKey = `${feedHash}:${episodeGuid}`;
   const startTime = Date.now();
@@ -60,9 +56,16 @@ export async function processDemoEpisode(
     // Detect ads with user's credentials
     const customClient = new GoogleGenerativeAI(apiKey);
     
+    // Prepare clean duration source if available
+    const cleanDurationSource = cleanDurationFromFeed ? {
+      type: 'rss' as const,
+      value: cleanDurationFromFeed
+    } : undefined;
+    
     const validationResult = await processWithValidation(
       originalPath,
-      undefined, undefined,
+      cleanDurationSource?.value,
+      cleanDurationSource,
       customClient,
       model,
       (_currentChunk, _totalChunks, currentPosition) => {

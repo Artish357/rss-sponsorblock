@@ -36,7 +36,8 @@ function getDefaultClient(): GoogleGenerativeAI {
 export const detectFirstAdBreak = async (
   chunkPath: string, 
   customClient?: GoogleGenerativeAI,
-  customModel?: string
+  customModel?: string,
+  chunkDuration?: number
 ): Promise<AdSegment | null> => {
   if (!chunkPath) {
     throw new Error('Failed to detect ad break: chunk path is required');
@@ -68,7 +69,30 @@ export const detectFirstAdBreak = async (
     ]);
 
     const parsed: GeminiAdSegment = JSON.parse(result.response.text()).ad_break;
-    return parsed ? { start: timeToSeconds(parsed.start), end: timeToSeconds(parsed.end)} : parsed; // Will be null if no break found
+    if (!parsed) return null;
+    
+    const adBreak = { 
+      start: timeToSeconds(parsed.start), 
+      end: timeToSeconds(parsed.end)
+    };
+    
+    // Validate that the ad break is within chunk bounds
+    if (chunkDuration) {
+      if (adBreak.start < 0 || adBreak.start >= chunkDuration) {
+        console.warn(`Ad break start ${adBreak.start}s is outside chunk duration ${chunkDuration}s, skipping`);
+        return null;
+      }
+      if (adBreak.end < 0 || adBreak.end > chunkDuration) {
+        console.warn(`Ad break end ${adBreak.end}s is outside chunk duration ${chunkDuration}s, clamping`);
+        adBreak.end = Math.min(adBreak.end, chunkDuration);
+      }
+      if (adBreak.start >= adBreak.end) {
+        console.warn(`Invalid ad break: start ${adBreak.start}s >= end ${adBreak.end}s, skipping`);
+        return null;
+      }
+    }
+    
+    return adBreak;
   } catch (error) {
     console.error('Error detecting first ad break:', error);
     if (error instanceof GoogleGenerativeAIError && (error as any).response?.promptFeedback?.blockReason === 'PROHIBITED_CONTENT') {
@@ -122,7 +146,7 @@ export async function* detectAllAdBreaks (
 
     try {
       // Detect first ad break in this chunk
-      const adBreak = await detectFirstAdBreak(chunkPath, customClient, customModel);
+      const adBreak = await detectFirstAdBreak(chunkPath, customClient, customModel, chunkDuration);
 
       if (adBreak) {
         // Convert relative timestamps to absolute
